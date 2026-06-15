@@ -60,3 +60,15 @@ Desktop.ini
 
 # Logs
 *.log
+logs/
+
+# Vendor (Live2D SDK submodule)
+vendor/
+
+# Runtime plugins (not committed)
+plugins/*/
+!plugins/.gitkeep
+
+# User data
+*.user
+AppData/
