@@ -1,0 +1,62 @@
+# Build outputs
+bin/
+obj/
+build/
+dist/
+out/
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.obj
+*.o
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.sdf
+*.cachefile
+*.VC.db
+*.sln.docstates
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet
+packages/
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+# VS Code
+.vscode/
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Publish profiles
+*.pubxml
+**/Properties/PublishProfiles/
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE
+.idea/
+*.swp
+*.tmp
+
+# Logs
+*.log
