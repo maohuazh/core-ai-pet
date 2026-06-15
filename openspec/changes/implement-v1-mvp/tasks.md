@@ -47,10 +47,10 @@
 
 ## 6. Hover Radial Menu
 
-- [ ] 6.1 Implement RadialMenuControl — Canvas-based circular layout, dynamic item count
-- [ ] 6.2 Implement RadialMenuViewModel — get menu items from PluginManager, compute positions
-- [ ] 6.3 Implement menu show/hide animations — Fade In + Scale Up (200-300ms), Fade Out
-- [ ] 6.4 Implement hover feedback — 110% scale + tooltip on item hover
+- [x] 6.1 Implement RadialMenuControl — Canvas-based circular layout, dynamic item count
+- [x] 6.2 Implement RadialMenuViewModel — get menu items from PluginManager, compute positions
+- [x] 6.3 Implement menu show/hide animations — Fade In + Scale Up (200-300ms), Fade Out
+- [x] 6.4 Implement hover feedback — 110% scale + tooltip on item hover
 - [ ] 6.5 Wire menu to MainWindow — show on MouseEnter, hide on MouseLeave with 1s delay
 
 ## 7. AI Chat System
@@ -62,8 +62,8 @@
 - [x] 7.5 Implement ChatSessionManager — maintain conversation history, token trimming
 - [x] 7.6 Implement SystemPromptBuilder — build system prompt with character persona
 - [ ] 7.7 Implement ChatViewModel — input handling, send command, streaming display, state transitions
-- [ ] 7.8 Implement ChatBubbleWindow — transparent popup window with input area and response display
-- [ ] 7.9 Implement long text handling — collapse >300 chars with "View more" expand button
+- [x] 7.8 Implement ChatBubbleWindow — transparent popup window with input area and response display
+- [x] 7.9 Implement long text handling — collapse >300 chars with "View more" expand button
 - [ ] 7.10 Wire Alt+Space global hotkey to open chat
 
 ## 8. Plugin Framework
@@ -78,14 +78,14 @@
 
 ## 9. System Tray
 
-- [ ] 9.1 Implement TrayIconService — create tray icon, handle balloon notifications
+- [x] 9.1 Implement TrayIconService — create tray icon, handle balloon notifications
 - [ ] 9.2 Implement tray right-click menu — Show/Hide/Settings/Restart/Exit options
 - [ ] 9.3 Implement double-click to restore — show character window at last position
 - [ ] 9.4 Implement TrayViewModel — commands for each menu action
 
 ## 10. Settings UI
 
-- [ ] 10.1 Create SettingsWindow.xaml — Tab layout: Appearance / System / AI / Plugins
+- [x] 10.1 Create SettingsWindow.xaml — Tab layout: Appearance / System / AI / Plugins
 - [ ] 10.2 Implement Appearance tab — scale slider (50-200%), opacity slider (20-100%), theme toggle
 - [ ] 10.3 Implement System tab — auto-start checkbox, always-on-top checkbox, click-through checkbox
 - [ ] 10.4 Implement AI tab — provider dropdown, endpoint/apiKey/model fields per provider, test connection button
@@ -94,8 +94,8 @@
 
 ## 11. Debug Panel
 
-- [ ] 11.1 Create DebugWindow.xaml — layout for FPS/CPU/Memory metrics, plugin list, log viewer
-- [ ] 11.2 Implement PerformanceMonitor — collect FPS (from FrameTimer), CPU, memory (Process.GetCurrentProcess)
+- [x] 11.1 Create DebugWindow.xaml — layout for FPS/CPU/Memory metrics, plugin list, log viewer
+- [x] 11.2 Implement PerformanceMonitor — collect FPS (from FrameTimer), CPU, memory (Process.GetCurrentProcess)
 - [ ] 11.3 Implement DebugViewModel — bind metrics, plugin states, log entries
 - [ ] 11.4 Wire log viewer to LogService.GetRecentLogs + LogAdded event
 
