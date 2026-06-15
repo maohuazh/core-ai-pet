@@ -51,7 +51,7 @@
 - [x] 6.2 Implement RadialMenuViewModel — get menu items from PluginManager, compute positions
 - [x] 6.3 Implement menu show/hide animations — Fade In + Scale Up (200-300ms), Fade Out
 - [x] 6.4 Implement hover feedback — 110% scale + tooltip on item hover
-- [ ] 6.5 Wire menu to MainWindow — show on MouseEnter, hide on MouseLeave with 1s delay
+- [x] 6.5 Wire menu to MainWindow — show on MouseEnter, hide on MouseLeave with 1s delay
 
 ## 7. AI Chat System
 
@@ -64,7 +64,7 @@
 - [x] 7.7 Implement ChatViewModel — input handling, send command, streaming display, state transitions
 - [x] 7.8 Implement ChatBubbleWindow — transparent popup window with input area and response display
 - [x] 7.9 Implement long text handling — collapse >300 chars with "View more" expand button
-- [ ] 7.10 Wire Alt+Space global hotkey to open chat
+- [x] 7.10 Wire Alt+Space global hotkey to open chat
 
 ## 8. Plugin Framework
 
@@ -116,7 +116,7 @@
 
 ## 13. App Integration & Startup
 
-- [ ] 13.1 Wire MainWindow.xaml — integrate Live2DHostControl, RadialMenuControl, chat trigger
-- [ ] 13.2 Wire App.xaml.cs — full Generic Host startup: config, services, position restore, main window show
-- [ ] 13.3 Implement graceful shutdown — save position, stop plugins, dispose host
+- [x] 13.1 Wire MainWindow.xaml — integrate Live2DHostControl, RadialMenuControl, chat trigger
+- [x] 13.2 Wire App.xaml.cs — full Generic Host startup: config, services, position restore, main window show
+- [x] 13.3 Implement graceful shutdown — save position, stop plugins, dispose host
 - [ ] 13.4 End-to-end smoke test — launch app, verify character displays, hover menu works, chat opens, plugins load
