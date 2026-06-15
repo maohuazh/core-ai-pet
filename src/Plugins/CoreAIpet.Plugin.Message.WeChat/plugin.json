@@ -1,0 +1,10 @@
+{
+  "id": "provider.message.wechat",
+  "name": "企业微信",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Message.WeChat.dll",
+  "className": "CoreAIpet.Plugin.Message.WeChat.WeChatPlugin",
+  "icon": "assets/wechat.png",
+  "description": "企业微信消息提供者"
+}

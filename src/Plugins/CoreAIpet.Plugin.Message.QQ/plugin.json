@@ -1,0 +1,10 @@
+{
+  "id": "provider.message.qq",
+  "name": "QQ",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Message.QQ.dll",
+  "className": "CoreAIpet.Plugin.Message.QQ.QQPlugin",
+  "icon": "assets/qq.png",
+  "description": "QQ 消息提供者"
+}

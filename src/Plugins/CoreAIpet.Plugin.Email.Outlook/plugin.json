@@ -1,0 +1,10 @@
+{
+  "id": "provider.email.outlook",
+  "name": "Outlook",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Email.Outlook.dll",
+  "className": "CoreAIpet.Plugin.Email.Outlook.OutlookPlugin",
+  "icon": "assets/outlook.png",
+  "description": "Microsoft Outlook 邮箱提供者"
+}

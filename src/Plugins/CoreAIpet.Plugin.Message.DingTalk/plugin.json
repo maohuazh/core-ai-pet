@@ -1,0 +1,10 @@
+{
+  "id": "provider.message.dingtalk",
+  "name": "钉钉",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Message.DingTalk.dll",
+  "className": "CoreAIpet.Plugin.Message.DingTalk.DingTalkPlugin",
+  "icon": "assets/dingtalk.png",
+  "description": "钉钉消息提供者"
+}

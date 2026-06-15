@@ -1,0 +1,10 @@
+{
+  "id": "provider.message.slack",
+  "name": "Slack",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Message.Slack.dll",
+  "className": "CoreAIpet.Plugin.Message.Slack.SlackPlugin",
+  "icon": "assets/slack.png",
+  "description": "Slack 消息提供者"
+}

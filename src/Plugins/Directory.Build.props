@@ -1,0 +1,22 @@
+<Project>
+  <!-- 所有插件项目的公共构建配置 -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- 插件 DLL 输出到主程序的 plugins/ 目录 -->
+    <OutputPath>$(MSBuildThisFileDirectory)..\..\plugins\$(MSBuildProjectName)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 所有插件都引用 Core SDK -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\CoreAIpet.Core\CoreAIpet.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 插件清单文件复制到输出目录 -->
+    <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="assets" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,107 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{42702F24-9DD7-49F9-92D4-DD02E09DFDEF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Core", "src\CoreAIpet.Core\CoreAIpet.Core.csproj", "{E6D08436-6590-4B8B-9754-96C8560437CA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Desktop", "src\CoreAIpet.Desktop\CoreAIpet.Desktop.csproj", "{E7532E12-15BA-4AF9-9A23-30583B2B497E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{923CBA69-A5D5-4928-9BFC-E1070B71E653}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Jira", "src\Plugins\CoreAIpet.Plugin.Jira\CoreAIpet.Plugin.Jira.csproj", "{9B77AD26-44E4-42AD-95D3-7EC544864A45}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Email.Outlook", "src\Plugins\CoreAIpet.Plugin.Email.Outlook\CoreAIpet.Plugin.Email.Outlook.csproj", "{10048B1F-0D16-4B77-845C-C87348675F72}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Email.Gmail", "src\Plugins\CoreAIpet.Plugin.Email.Gmail\CoreAIpet.Plugin.Email.Gmail.csproj", "{6650BABC-F6E4-4D94-BA3D-64EB5BF40A3A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Email.IMAP", "src\Plugins\CoreAIpet.Plugin.Email.IMAP\CoreAIpet.Plugin.Email.IMAP.csproj", "{8053DA6E-F578-440C-9D04-58A7E6217E2D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Message.Slack", "src\Plugins\CoreAIpet.Plugin.Message.Slack\CoreAIpet.Plugin.Message.Slack.csproj", "{9904474D-77AA-4A42-A13E-1BEE3421C312}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Message.DingTalk", "src\Plugins\CoreAIpet.Plugin.Message.DingTalk\CoreAIpet.Plugin.Message.DingTalk.csproj", "{29DF6C2B-ADEE-4B6E-ABC0-35A73F30D6B9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Message.Feishu", "src\Plugins\CoreAIpet.Plugin.Message.Feishu\CoreAIpet.Plugin.Message.Feishu.csproj", "{4128CA92-CBC7-4AD4-8D77-AC7202AD1F64}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Message.Teams", "src\Plugins\CoreAIpet.Plugin.Message.Teams\CoreAIpet.Plugin.Message.Teams.csproj", "{9C156707-7EE1-4C19-809C-AF56E8A90B29}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Message.QQ", "src\Plugins\CoreAIpet.Plugin.Message.QQ\CoreAIpet.Plugin.Message.QQ.csproj", "{717F69A5-C912-4827-A926-A4E9FE084F33}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreAIpet.Plugin.Message.WeChat", "src\Plugins\CoreAIpet.Plugin.Message.WeChat\CoreAIpet.Plugin.Message.WeChat.csproj", "{43C7FC9E-4CD1-46E2-BEDE-A0D1953C3574}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E6D08436-6590-4B8B-9754-96C8560437CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E6D08436-6590-4B8B-9754-96C8560437CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E6D08436-6590-4B8B-9754-96C8560437CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E6D08436-6590-4B8B-9754-96C8560437CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E7532E12-15BA-4AF9-9A23-30583B2B497E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E7532E12-15BA-4AF9-9A23-30583B2B497E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E7532E12-15BA-4AF9-9A23-30583B2B497E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E7532E12-15BA-4AF9-9A23-30583B2B497E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B77AD26-44E4-42AD-95D3-7EC544864A45}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B77AD26-44E4-42AD-95D3-7EC544864A45}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B77AD26-44E4-42AD-95D3-7EC544864A45}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B77AD26-44E4-42AD-95D3-7EC544864A45}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10048B1F-0D16-4B77-845C-C87348675F72}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10048B1F-0D16-4B77-845C-C87348675F72}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10048B1F-0D16-4B77-845C-C87348675F72}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10048B1F-0D16-4B77-845C-C87348675F72}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6650BABC-F6E4-4D94-BA3D-64EB5BF40A3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6650BABC-F6E4-4D94-BA3D-64EB5BF40A3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6650BABC-F6E4-4D94-BA3D-64EB5BF40A3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6650BABC-F6E4-4D94-BA3D-64EB5BF40A3A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8053DA6E-F578-440C-9D04-58A7E6217E2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8053DA6E-F578-440C-9D04-58A7E6217E2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8053DA6E-F578-440C-9D04-58A7E6217E2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8053DA6E-F578-440C-9D04-58A7E6217E2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9904474D-77AA-4A42-A13E-1BEE3421C312}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9904474D-77AA-4A42-A13E-1BEE3421C312}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9904474D-77AA-4A42-A13E-1BEE3421C312}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9904474D-77AA-4A42-A13E-1BEE3421C312}.Release|Any CPU.Build.0 = Release|Any CPU
+		{29DF6C2B-ADEE-4B6E-ABC0-35A73F30D6B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29DF6C2B-ADEE-4B6E-ABC0-35A73F30D6B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29DF6C2B-ADEE-4B6E-ABC0-35A73F30D6B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29DF6C2B-ADEE-4B6E-ABC0-35A73F30D6B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4128CA92-CBC7-4AD4-8D77-AC7202AD1F64}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4128CA92-CBC7-4AD4-8D77-AC7202AD1F64}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4128CA92-CBC7-4AD4-8D77-AC7202AD1F64}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4128CA92-CBC7-4AD4-8D77-AC7202AD1F64}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9C156707-7EE1-4C19-809C-AF56E8A90B29}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C156707-7EE1-4C19-809C-AF56E8A90B29}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C156707-7EE1-4C19-809C-AF56E8A90B29}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C156707-7EE1-4C19-809C-AF56E8A90B29}.Release|Any CPU.Build.0 = Release|Any CPU
+		{717F69A5-C912-4827-A926-A4E9FE084F33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{717F69A5-C912-4827-A926-A4E9FE084F33}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{717F69A5-C912-4827-A926-A4E9FE084F33}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{717F69A5-C912-4827-A926-A4E9FE084F33}.Release|Any CPU.Build.0 = Release|Any CPU
+		{43C7FC9E-4CD1-46E2-BEDE-A0D1953C3574}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{43C7FC9E-4CD1-46E2-BEDE-A0D1953C3574}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{43C7FC9E-4CD1-46E2-BEDE-A0D1953C3574}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{43C7FC9E-4CD1-46E2-BEDE-A0D1953C3574}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E6D08436-6590-4B8B-9754-96C8560437CA} = {42702F24-9DD7-49F9-92D4-DD02E09DFDEF}
+		{E7532E12-15BA-4AF9-9A23-30583B2B497E} = {42702F24-9DD7-49F9-92D4-DD02E09DFDEF}
+		{923CBA69-A5D5-4928-9BFC-E1070B71E653} = {42702F24-9DD7-49F9-92D4-DD02E09DFDEF}
+		{9B77AD26-44E4-42AD-95D3-7EC544864A45} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{10048B1F-0D16-4B77-845C-C87348675F72} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{6650BABC-F6E4-4D94-BA3D-64EB5BF40A3A} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{8053DA6E-F578-440C-9D04-58A7E6217E2D} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{9904474D-77AA-4A42-A13E-1BEE3421C312} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{29DF6C2B-ADEE-4B6E-ABC0-35A73F30D6B9} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{4128CA92-CBC7-4AD4-8D77-AC7202AD1F64} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{9C156707-7EE1-4C19-809C-AF56E8A90B29} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{717F69A5-C912-4827-A926-A4E9FE084F33} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+		{43C7FC9E-4CD1-46E2-BEDE-A0D1953C3574} = {923CBA69-A5D5-4928-9BFC-E1070B71E653}
+	EndGlobalSection
+EndGlobal

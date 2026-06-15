@@ -1,0 +1,10 @@
+{
+  "id": "provider.message.teams",
+  "name": "Teams",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Message.Teams.dll",
+  "className": "CoreAIpet.Plugin.Message.Teams.TeamsPlugin",
+  "icon": "assets/teams.png",
+  "description": "Microsoft Teams 消息提供者"
+}

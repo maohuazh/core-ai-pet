@@ -1,0 +1,13 @@
+LIBRARY Live2DBridge
+EXPORTS
+    Bridge_Initialize
+    Bridge_Shutdown
+    Bridge_LoadModel
+    Bridge_UnloadModel
+    Bridge_InitializeRenderer
+    Bridge_Render
+    Bridge_Resize
+    Bridge_SetMotionGroup
+    Bridge_SetParameter
+    Bridge_SetEyeTarget
+    Bridge_GetFPS

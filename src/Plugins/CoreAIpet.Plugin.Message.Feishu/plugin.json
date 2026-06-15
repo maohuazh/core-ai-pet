@@ -1,0 +1,10 @@
+{
+  "id": "provider.message.feishu",
+  "name": "飞书",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Message.Feishu.dll",
+  "className": "CoreAIpet.Plugin.Message.Feishu.FeishuPlugin",
+  "icon": "assets/feishu.png",
+  "description": "飞书消息提供者"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "coreai.jira",
+  "name": "Jira",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Jira.dll",
+  "className": "CoreAIpet.Plugin.Jira.JiraPlugin",
+  "icon": "assets/jira.png",
+  "description": "Jira 任务管理与 @通知"
+}

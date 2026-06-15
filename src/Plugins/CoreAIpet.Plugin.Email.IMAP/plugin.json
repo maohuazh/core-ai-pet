@@ -1,0 +1,10 @@
+{
+  "id": "provider.email.imap",
+  "name": "IMAP",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Email.IMAP.dll",
+  "className": "CoreAIpet.Plugin.Email.IMAP.ImapPlugin",
+  "icon": "assets/imap.png",
+  "description": "通用 IMAP 邮箱提供者"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "provider.email.gmail",
+  "name": "Gmail",
+  "version": "1.0.0",
+  "author": "CoreAIpet",
+  "entryPoint": "CoreAIpet.Plugin.Email.Gmail.dll",
+  "className": "CoreAIpet.Plugin.Email.Gmail.GmailPlugin",
+  "icon": "assets/gmail.png",
+  "description": "Gmail 邮箱提供者"
+}

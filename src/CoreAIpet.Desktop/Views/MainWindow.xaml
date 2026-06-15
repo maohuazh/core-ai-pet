@@ -1,0 +1,21 @@
+<Window x:Class="CoreAIpet.Desktop.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CoreAIpet"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="Manual">
+
+    <Grid x:Name="RootGrid" Width="200" Height="300">
+        <!-- Live2D 角色宿主区域 (将由 Live2DHostControl 填充) -->
+        <Border x:Name="Live2DHostArea" Background="Transparent" />
+
+        <!-- 径向菜单 (默认隐藏) -->
+        <Canvas x:Name="RadialMenuCanvas" Visibility="Collapsed" />
+    </Grid>
+</Window>
