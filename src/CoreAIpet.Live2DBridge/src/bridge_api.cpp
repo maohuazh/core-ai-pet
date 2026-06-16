@@ -133,15 +133,15 @@ void Bridge_Render()
             if (w > 0 && h > 0)
             {
                 Live2D::Cubism::Framework::CubismMatrix44 projection;
-                // Simple orthographic: map model coordinates to screen
-                float scaleX = 2.0f / (float)w;
-                float scaleY = 2.0f / (float)h;
-                projection.Scale(scaleX, scaleY);
+                // Identity projection — model matrix handles coordinate mapping
+                // (Cubism standard: model coords map directly to NDC)
 
-                // Apply model matrix
+                // Apply model matrix (contains layout from model3.json)
                 auto* modelMatrix = userModel->GetModelMatrix();
                 if (modelMatrix)
                 {
+                    // Ensure model fills vertical space (model coords are ±1 = 2 units)
+                    modelMatrix->SetHeight(2.0f);
                     projection.MultiplyByMatrix(modelMatrix);
                 }
 

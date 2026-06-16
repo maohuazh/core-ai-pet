@@ -19,6 +19,7 @@ static ID3D11RenderTargetView* g_rtv          = nullptr;
 static ID3D11Texture2D*        g_depthTex     = nullptr;
 static ID3D11DepthStencilView* g_dsv          = nullptr;
 static ID3D11DepthStencilState* g_depthState  = nullptr;
+static ID3D11BlendState*        g_blendState  = nullptr;
 
 static bool CreateRenderTarget()
 {
@@ -142,12 +143,28 @@ bool Initialize(HWND hwnd, int width, int height)
     hr = g_device->CreateDepthStencilState(&depthDescState, &g_depthState);
     if (FAILED(hr)) return false;
 
+    // Alpha blend state for transparent background
+    D3D11_BLEND_DESC blendDesc = {};
+    blendDesc.AlphaToCoverageEnable = FALSE;
+    blendDesc.IndependentBlendEnable = FALSE;
+    blendDesc.RenderTarget[0].BlendEnable = TRUE;
+    blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+    blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    hr = g_device->CreateBlendState(&blendDesc, &g_blendState);
+    if (FAILED(hr)) return false;
+
     return true;
 }
 
 void Shutdown()
 {
     ReleaseRenderTarget();
+    if (g_blendState)  { g_blendState->Release();  g_blendState = nullptr; }
     if (g_depthState) { g_depthState->Release(); g_depthState = nullptr; }
     if (g_swapChain)  { g_swapChain->Release();  g_swapChain = nullptr; }
     if (g_context)    { g_context->Release();     g_context = nullptr; }
@@ -190,6 +207,11 @@ void BeginFrame()
     if (g_depthState)
     {
         g_context->OMSetDepthStencilState(g_depthState, 0);
+    }
+    if (g_blendState)
+    {
+        const float blendFactor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        g_context->OMSetBlendState(g_blendState, blendFactor, 0xFFFFFFFF);
     }
 
     // Set viewport
