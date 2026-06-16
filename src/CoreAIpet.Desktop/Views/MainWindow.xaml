@@ -12,19 +12,6 @@
         ResizeMode="NoResize"
         WindowStartupLocation="Manual">
 
-    <!-- 右键菜单 -->
-    <Window.ContextMenu>
-        <ContextMenu>
-            <MenuItem Header="打开聊天" Click="OnOpenChat_Click"/>
-            <MenuItem Header="隐藏菜单" Click="OnToggleMenu_Click"/>
-            <Separator/>
-            <MenuItem Header="设置" Click="OnSettings_Click"/>
-            <MenuItem Header="调试面板" Click="OnDebug_Click"/>
-            <Separator/>
-            <MenuItem Header="退出" Click="OnExit_Click" FontWeight="Bold"/>
-        </ContextMenu>
-    </Window.ContextMenu>
-
     <!-- 外边距作为透明区域 -->
     <Grid Margin="20">
         <!-- 卡片背景 + 阴影 -->

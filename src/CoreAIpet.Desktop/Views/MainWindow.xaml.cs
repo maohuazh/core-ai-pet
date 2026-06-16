@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using CoreAIpet.Core.Interfaces;
@@ -24,6 +25,39 @@ public partial class MainWindow : Window
         MouseLeave += OnMouseLeave;
 
         _autoHide = new AutoHideBehavior(this, () => HideMenu());
+
+        // 动态创建右键菜单（无边框窗口需要在代码中创建）
+        CreateContextMenu();
+    }
+
+    private void CreateContextMenu()
+    {
+        var menu = new ContextMenu();
+
+        var openChat = new MenuItem { Header = "打开聊天" };
+        openChat.Click += OnOpenChat_Click;
+
+        var toggleMenu = new MenuItem { Header = "隐藏菜单" };
+        toggleMenu.Click += OnToggleMenu_Click;
+
+        var settings = new MenuItem { Header = "设置" };
+        settings.Click += OnSettings_Click;
+
+        var debug = new MenuItem { Header = "调试面板" };
+        debug.Click += OnDebug_Click;
+
+        var exit = new MenuItem { Header = "退出", FontWeight = FontWeights.Bold };
+        exit.Click += OnExit_Click;
+
+        menu.Items.Add(openChat);
+        menu.Items.Add(toggleMenu);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(settings);
+        menu.Items.Add(debug);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(exit);
+
+        ContextMenu = menu;
     }
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -111,16 +145,7 @@ public partial class MainWindow : Window
 
     private void OnExit_Click(object sender, RoutedEventArgs e)
     {
-        // 保存窗口位置
-        try
-        {
-            var posService = ((App)App.Current).Host.Services
-                .GetRequiredService<IPositionService>();
-            posService.SaveAsync(new WindowPosition(Left, Top)).Wait();
-        }
-        catch { /* 忽略保存失败 */ }
-
-        // 退出应用
+        // 直接关闭，位置保存由 App.OnExit 处理
         App.Current.Shutdown();
     }
 }
