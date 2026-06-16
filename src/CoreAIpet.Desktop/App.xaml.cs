@@ -1,4 +1,6 @@
+using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,44 +16,79 @@ public partial class App : Application
 {
     private IHost? _host;
 
+    public App()
+    {
+        var crashPath = Path.Combine(AppContext.BaseDirectory, "crash.log");
+        // 全局异常捕获：避免 async void / UI 线程异常被静默吞掉
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            File.AppendAllText(crashPath,
+                $"[AppDomain] {e.ExceptionObject}{Environment.NewLine}");
+        DispatcherUnhandledException += (s, e) =>
+        {
+            File.AppendAllText(crashPath,
+                $"[Dispatcher] {e.Exception}{Environment.NewLine}");
+            e.Handled = false;
+        };
+        TaskScheduler.UnobservedTaskException += (s, e) =>
+        {
+            File.AppendAllText(crashPath,
+                $"[TaskScheduler] {e.Exception}{Environment.NewLine}");
+            e.SetObserved();
+        };
+    }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-
-        // 单实例检测
-        if (!SingleInstanceGuard.TryAcquire())
+        var crashPath = Path.Combine(AppContext.BaseDirectory, "crash.log");
+        try
         {
-            Shutdown();
-            return;
+            // 单实例检测
+            if (!SingleInstanceGuard.TryAcquire())
+            {
+                Shutdown();
+                return;
+            }
+
+            // 构建 Generic Host
+            _host = Host.CreateDefaultBuilder()
+                .UseContentRoot(AppContext.BaseDirectory)
+                .ConfigureAppConfiguration((ctx, config) =>
+                {
+                    config.SetBasePath(AppContext.BaseDirectory);
+                    config.AddJsonFile("config.json", optional: true, reloadOnChange: true);
+                })
+                .ConfigureServices((ctx, services) =>
+                {
+                    CompositionRoot.RegisterServices(services, ctx.Configuration);
+                })
+                .Build();
+
+            await _host.StartAsync();
+
+            // 获取主窗口并恢复位置
+            var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+            var posService = _host.Services.GetRequiredService<IPositionService>();
+            var pos = await posService.LoadAsync();
+            if (pos != null)
+            {
+                mainWindow.Left = pos.X;
+                mainWindow.Top = pos.Y;
+            }
+            else
+            {
+                // 默认位置：屏幕左侧偏上，确保可见
+                mainWindow.Left = 100;
+                mainWindow.Top = 100;
+            }
+
+            mainWindow.Show();
         }
-
-        // 构建 Generic Host
-        _host = Host.CreateDefaultBuilder()
-            .UseContentRoot(AppContext.BaseDirectory)
-            .ConfigureAppConfiguration((ctx, config) =>
-            {
-                config.SetBasePath(AppContext.BaseDirectory);
-                config.AddJsonFile("config.json", optional: true, reloadOnChange: true);
-            })
-            .ConfigureServices((ctx, services) =>
-            {
-                CompositionRoot.RegisterServices(services, ctx.Configuration);
-            })
-            .Build();
-
-        await _host.StartAsync();
-
-        // 获取主窗口并恢复位置
-        var mainWindow = _host.Services.GetRequiredService<MainWindow>();
-        var posService = _host.Services.GetRequiredService<IPositionService>();
-        var pos = await posService.LoadAsync();
-        if (pos != null)
+        catch (Exception ex)
         {
-            mainWindow.Left = pos.X;
-            mainWindow.Top = pos.Y;
+            File.AppendAllText(crashPath,
+                $"[OnStartup] {ex}{Environment.NewLine}");
         }
-
-        mainWindow.Show();
     }
 
     protected override async void OnExit(ExitEventArgs e)

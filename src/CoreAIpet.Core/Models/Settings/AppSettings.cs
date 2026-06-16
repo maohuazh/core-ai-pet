@@ -125,10 +125,10 @@ public class OllamaConfig
 public class PositionConfig
 {
     [JsonPropertyName("x")]
-    public double X { get; set; } = 1600;
+    public double X { get; set; } = 0;
 
     [JsonPropertyName("y")]
-    public double Y { get; set; } = 820;
+    public double Y { get; set; } = 0;
 }
 
 /// <summary>
