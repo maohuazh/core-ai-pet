@@ -33,20 +33,20 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
     // ============================================================
     // 角色尺寸配置
     // ============================================================
-    private double _faceWidth = 160;
-    private double _faceHeight = 180;
-    private double _eyeSpacing = 30;
-    private double _eyeSize = 22;
-    private double _pupilSize = 10;
-    private double _mouthWidth = 24;
-    private double _mouthHeight = 8;
+    private double _faceWidth = 80;
+    private double _faceHeight = 90;
+    private double _eyeSpacing = 15;
+    private double _eyeSize = 11;
+    private double _pupilSize = 5;
+    private double _mouthWidth = 12;
+    private double _mouthHeight = 4;
 
     // ============================================================
     // 眼球追踪
     // ============================================================
     private double _eyeTargetX;
     private double _eyeTargetY;
-    private const double MaxEyeOffset = 6;
+    private const double MaxEyeOffset = 3;
 
     // ============================================================
     // 动画相位
@@ -74,8 +74,8 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
     // ============================================================
     public PetCharacterControl()
     {
-        Width = 200;
-        Height = 240;
+        Width = 100;
+        Height = 120;
         ClipToBounds = false;
 
         // 创建视觉元素
@@ -201,8 +201,8 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
     {
         return new Ellipse
         {
-            Width = 5,
-            Height = 5,
+            Width = 3,
+            Height = 3,
             Fill = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255))
         };
     }
@@ -221,8 +221,8 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
     {
         return new Ellipse
         {
-            Width = 24,
-            Height = 14,
+            Width = 12,
+            Height = 7,
             Fill = new SolidColorBrush(Color.FromArgb(60, 255, 150, 150))
         };
     }
@@ -239,7 +239,7 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
         SetLeft(_faceShape, cx - _faceWidth / 2);
         SetTop(_faceShape, cy - _faceHeight / 2);
 
-        double eyeY = cy - 10;
+        double eyeY = cy - 5;
         SetLeft(_leftEyeWhite, cx - _eyeSpacing - _eyeSize / 2);
         SetTop(_leftEyeWhite, eyeY - _eyeSize / 2);
         SetLeft(_rightEyeWhite, cx + _eyeSpacing - _eyeSize / 2);
@@ -247,10 +247,10 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
 
         UpdatePupilPosition();
 
-        SetLeft(_blushLeft, cx - _eyeSpacing - 20);
-        SetTop(_blushLeft, eyeY + 20);
-        SetLeft(_blushRight, cx + _eyeSpacing - 4);
-        SetTop(_blushRight, eyeY + 20);
+        SetLeft(_blushLeft, cx - _eyeSpacing - 10);
+        SetTop(_blushLeft, eyeY + 10);
+        SetLeft(_blushRight, cx + _eyeSpacing - 2);
+        SetTop(_blushRight, eyeY + 10);
 
         UpdateMouthShape();
     }
@@ -258,7 +258,7 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
     private void UpdatePupilPosition()
     {
         double cx = Width / 2;
-        double eyeY = Height / 2 - 10;
+        double eyeY = Height / 2 - 5;
 
         double offsetX = _eyeTargetX * MaxEyeOffset;
         double offsetY = -_eyeTargetY * MaxEyeOffset;
@@ -267,21 +267,21 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
         double leftPupilY = eyeY - _pupilSize / 2 + offsetY;
         SetLeft(_leftPupil, leftPupilX);
         SetTop(_leftPupil, leftPupilY);
-        SetLeft(_leftEyeHighlight, leftPupilX + 2);
-        SetTop(_leftEyeHighlight, leftPupilY + 2);
+        SetLeft(_leftEyeHighlight, leftPupilX + 1);
+        SetTop(_leftEyeHighlight, leftPupilY + 1);
 
         double rightPupilX = cx + _eyeSpacing - _pupilSize / 2 + offsetX;
         double rightPupilY = eyeY - _pupilSize / 2 + offsetY;
         SetLeft(_rightPupil, rightPupilX);
         SetTop(_rightPupil, rightPupilY);
-        SetLeft(_rightEyeHighlight, rightPupilX + 2);
-        SetTop(_rightEyeHighlight, rightPupilY + 2);
+        SetLeft(_rightEyeHighlight, rightPupilX + 1);
+        SetTop(_rightEyeHighlight, rightPupilY + 1);
     }
 
     private void UpdateMouthShape()
     {
         double cx = Width / 2;
-        double cy = Height / 2 + 30;
+        double cy = Height / 2 + 15;
 
         double w = _mouthWidth;
         double h = _mouthHeight;
@@ -311,7 +311,7 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
 
             case CharacterState.Thinking:
                 // 小圆嘴（惊讶/思考）
-                _mouthShape.Data = new EllipseGeometry(new Point(cx, cy), 4, 4);
+                _mouthShape.Data = new EllipseGeometry(new Point(cx, cy), 2, 2);
                 _mouthShape.StrokeThickness = 1;
                 break;
 
@@ -321,7 +321,7 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
                 {
                     new PathFigure(new Point(cx - w / 3, cy), new[]
                     {
-                        new QuadraticBezierSegment(new Point(cx - w / 6, cy + 2), new Point(cx, cy + 2), true)
+                        new QuadraticBezierSegment(new Point(cx - w / 6, cy + 1), new Point(cx, cy + 1), true)
                     }, false)
                 });
                 _mouthShape.Stroke = new SolidColorBrush(Color.FromRgb(120, 40, 40));
@@ -356,14 +356,14 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
         double t = elapsed.TotalSeconds;
 
         // 呼吸动画：上下浮动
-        double breath = Math.Sin(t * 2) * 3;
+        double breath = Math.Sin(t * 2) * 1.5;
         SetTop(_faceShape, Height / 2 - _faceHeight / 2 + breath);
-        SetTop(_leftEyeWhite, Height / 2 - 10 - _eyeSize / 2 + breath);
-        SetTop(_rightEyeWhite, Height / 2 - 10 - _eyeSize / 2 + breath);
-        SetTop(_leftPupil, Height / 2 - 10 - _pupilSize / 2 + breath + (-_eyeTargetY * MaxEyeOffset));
-        SetTop(_rightPupil, Height / 2 - 10 - _pupilSize / 2 + breath + (-_eyeTargetY * MaxEyeOffset));
-        SetTop(_blushLeft, Height / 2 + 20 + breath);
-        SetTop(_blushRight, Height / 2 + 20 + breath);
+        SetTop(_leftEyeWhite, Height / 2 - 5 - _eyeSize / 2 + breath);
+        SetTop(_rightEyeWhite, Height / 2 - 5 - _eyeSize / 2 + breath);
+        SetTop(_leftPupil, Height / 2 - 5 - _pupilSize / 2 + breath + (-_eyeTargetY * MaxEyeOffset));
+        SetTop(_rightPupil, Height / 2 - 5 - _pupilSize / 2 + breath + (-_eyeTargetY * MaxEyeOffset));
+        SetTop(_blushLeft, Height / 2 + 10 + breath);
+        SetTop(_blushRight, Height / 2 + 10 + breath);
 
         // 眨眼：每 4 秒一次，持续 0.15 秒
         double blinkPhase = t % 4;
@@ -377,7 +377,7 @@ public partial class PetCharacterControl : Canvas, ICharacterRenderer
         {
             double mouthOpen = (Math.Sin(t * 15) + 1) * 0.5;
             double cx = Width / 2;
-            double cy = Height / 2 + 30 + breath;
+            double cy = Height / 2 + 15 + breath;
             _mouthShape.Data = new EllipseGeometry(
                 new Point(cx, cy),
                 _mouthWidth / 2,

@@ -1,93 +1,119 @@
 #ifndef BRIDGE_INTERNAL_H
 #define BRIDGE_INTERNAL_H
 
-// ============================================================
-// Live2D Bridge 内部头文件
-// 通过定义 LIVE2D_HAS_SDK 启用真实 SDK 渲染；
-// 未定义时，使用 GDI 占位渲染器（便于无 SDK 时联调 C# 侧）。
-// ============================================================
-
 #include <windows.h>
 #include <string>
 #include <unordered_map>
 #include <mutex>
 
-// ------------------------------------------------------------
-// cubism_model.cpp
-// ------------------------------------------------------------
-namespace Model {
+#ifdef LIVE2D_HAS_SDK
+#include "CubismFramework.hpp"
+#include "Model/CubismUserModel.hpp"
+#include "Model/CubismModel.hpp"
+#include "CubismModelSettingJson.hpp"
+#include "Motion/CubismMotionManager.hpp"
+#include "Motion/CubismMotion.hpp"
+#include "Motion/ACubismMotion.hpp"
+#include "Effect/CubismBreath.hpp"
+#include "Effect/CubismEyeBlink.hpp"
+#include "Effect/CubismPose.hpp"
+#include "Physics/CubismPhysics.hpp"
+#include "Math/CubismModelMatrix.hpp"
+#include "Rendering/D3D11/CubismRenderer_D3D11.hpp"
+#include "Rendering/D3D11/CubismNativeInclude_D3D11.hpp"
+#endif
 
-struct ModelInstance {
-    std::wstring path;
-    bool loaded = false;
-    // 当 LIVE2D_HAS_SDK 启用时，这里会持有 CubismUserModel* 等资源
-    void* nativeHandle = nullptr;
-};
+// ============================================================
+// cubism_allocator.cpp — Framework memory allocator
+// ============================================================
+#ifdef LIVE2D_HAS_SDK
+namespace CsmAllocator {
+    void Register();
+    Live2D::Cubism::Framework::ICubismAllocator* Get();
+}
+#endif
+
+// ============================================================
+// cubism_model.cpp — Model loading & per-frame update
+// ============================================================
+namespace Model {
 
 bool Initialize();
 void Shutdown();
 bool Load(const char* modelPath);
 void Unload();
 bool IsLoaded();
+
+/// Update model parameters (motions, breath, eye blink, physics, pose)
+/// deltaTimeSeconds: time since last frame
+void Update(float deltaTimeSeconds);
+
+/// Set a parameter value on the model
 void SetParameter(const char* paramId, float value);
-float GetParameter(const char* paramId, float defaultValue);
-ModelInstance* Current();
+
+/// Get model's CubismUserModel pointer (for renderer)
+#ifdef LIVE2D_HAS_SDK
+Live2D::Cubism::Framework::CubismUserModel* GetUserModel();
+#endif
+
+bool GetLayout(float& centerX, float& centerY, float& width, float& height);
 
 } // namespace Model
 
-// ------------------------------------------------------------
-// cubism_renderer.cpp
-// ------------------------------------------------------------
+// ============================================================
+// cubism_renderer.cpp — D3D11 device + swap chain management
+// ============================================================
 namespace Renderer {
 
 bool Initialize(HWND hwnd, int width, int height);
 void Shutdown();
 void Resize(int width, int height);
+
+/// Clear back buffer, call renderer->StartFrame()
 void BeginFrame();
-void EndFrame();      // 真正 Present
-void DrawPlaceholder();  // 占位渲染（无 SDK 时使用）
+
+/// Present swap chain, call renderer->EndFrame()
+void EndFrame();
+
+#ifdef LIVE2D_HAS_SDK
+ID3D11Device* GetDevice();
+ID3D11DeviceContext* GetDeviceContext();
+#endif
+
 int GetWidth();
 int GetHeight();
 HWND GetHwnd();
 
 } // namespace Renderer
 
-// ------------------------------------------------------------
-// cubism_animation.cpp
-// ------------------------------------------------------------
+// ============================================================
+// cubism_animation.cpp — Motion playback control
+// ============================================================
 namespace Animation {
 
-struct MotionState {
-    std::string group;     // 当前 motion group，例如 "idle", "happy", "thinking", "talking"
-    std::string name;      // 具体 motion name
-    DWORD startTick = 0;
-    bool playing = false;
-};
-
 void Initialize();
+
+/// Set motion group to play (triggers motion loading & playback)
 void SetMotion(const char* group, const char* name);
-void Update();             // 每帧调用，驱动参数动画
-const MotionState& Current();
+
+const std::string& CurrentGroup();
+const std::string& CurrentName();
 
 } // namespace Animation
 
-// ------------------------------------------------------------
-// eye_tracking.cpp
-// ------------------------------------------------------------
+// ============================================================
+// eye_tracking.cpp — Eye tracking parameters
+// ============================================================
 namespace EyeTracking {
 
-// 将归一化坐标 (-1..1) 转换为眼球参数，并写入模型
-//   x: -1(左)..1(右)
-//   y: -1(下)..1(上)
-// 角度限制：水平 ±30°，垂直 ±15°
 void Apply(float x, float y);
 void GetTarget(float& x, float& y);
 
 } // namespace EyeTracking
 
-// ------------------------------------------------------------
-// FPS 统计（bridge_api.cpp 使用）
-// ------------------------------------------------------------
+// ============================================================
+// FPS counter (bridge_api.cpp)
+// ============================================================
 namespace FpsCounter {
 void Tick();
 float Value();

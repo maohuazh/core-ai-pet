@@ -1,5 +1,5 @@
 // ============================================================
-// bridge_api.cpp — 导出函数实现（连接各子模块）
+// bridge_api.cpp — Exported C functions (connects all modules)
 // ============================================================
 
 #include "bridge_api.h"
@@ -7,12 +7,13 @@
 #include <chrono>
 
 static bool g_initialized = false;
-
-// ------------------------------------------------------------
-// FPS 计数器
-// ------------------------------------------------------------
-namespace FpsCounter {
 static DWORD g_lastTick = 0;
+
+// ============================================================
+// FPS counter
+// ============================================================
+namespace FpsCounter {
+static DWORD g_fpsLastTick = 0;
 static int   g_frames = 0;
 static float g_fps = 0.0f;
 
@@ -20,12 +21,12 @@ void Tick()
 {
     DWORD now = ::GetTickCount();
     ++g_frames;
-    if (g_lastTick == 0) g_lastTick = now;
-    DWORD dt = now - g_lastTick;
-    if (dt >= 500) {  // 每 0.5s 刷新一次
+    if (g_fpsLastTick == 0) g_fpsLastTick = now;
+    DWORD dt = now - g_fpsLastTick;
+    if (dt >= 500) {
         g_fps = (float)g_frames * 1000.0f / (float)dt;
         g_frames = 0;
-        g_lastTick = now;
+        g_fpsLastTick = now;
     }
 }
 
@@ -33,7 +34,7 @@ float Value() { return g_fps; }
 }
 
 // ============================================================
-// 初始化 / 释放
+// Initialize / Shutdown
 // ============================================================
 
 bool Bridge_Initialize(const char* /*sdkKey*/)
@@ -42,6 +43,7 @@ bool Bridge_Initialize(const char* /*sdkKey*/)
     if (!Model::Initialize()) return false;
     Animation::Initialize();
     g_initialized = true;
+    g_lastTick = ::GetTickCount();
     return true;
 }
 
@@ -55,7 +57,7 @@ void Bridge_Shutdown()
 }
 
 // ============================================================
-// 模型管理
+// Model management
 // ============================================================
 
 bool Bridge_LoadModel(const char* modelPath)
@@ -63,7 +65,6 @@ bool Bridge_LoadModel(const char* modelPath)
     if (!g_initialized) return false;
     if (!modelPath) return false;
     if (!Model::Load(modelPath)) return false;
-    // 重置动画状态到 idle
     Animation::SetMotion("idle", "idle_00");
     return true;
 }
@@ -74,7 +75,7 @@ void Bridge_UnloadModel()
 }
 
 // ============================================================
-// 渲染
+// Rendering
 // ============================================================
 
 bool Bridge_InitializeRenderer(HWND hwnd, int width, int height)
@@ -82,36 +83,98 @@ bool Bridge_InitializeRenderer(HWND hwnd, int width, int height)
     if (!hwnd) return false;
     if (width <= 0)  width  = 200;
     if (height <= 0) height = 300;
-    return Renderer::Initialize(hwnd, width, height);
+
+    if (!Renderer::Initialize(hwnd, width, height)) return false;
+
+#ifdef LIVE2D_HAS_SDK
+    // If model is already loaded, create renderer for it
+    auto* userModel = Model::GetUserModel();
+    if (userModel && userModel->GetModel())
+    {
+        // Set static device for CubismRenderer_D3D11
+        Live2D::Cubism::Framework::Rendering::CubismRenderer_D3D11::SetConstantSettings(
+            1, Renderer::GetDevice());
+
+        userModel->CreateRenderer(width, height);
+    }
+#endif
+
+    return true;
 }
 
 void Bridge_Render()
 {
     if (!Model::IsLoaded()) return;
 
-    // 1. 更新动画 / 参数
-    Animation::Update();
+    // Calculate delta time
+    DWORD now = ::GetTickCount();
+    float dt = (now - g_lastTick) / 1000.0f;
+    if (dt > 0.1f) dt = 0.1f; // clamp to prevent huge jumps
+    g_lastTick = now;
 
-    // 2. 渲染
+    // 1. Update model parameters (motions, breath, physics, etc.)
+    Model::Update(dt);
+
+    // 2. Begin frame (clear + set render targets)
     Renderer::BeginFrame();
+
 #ifdef LIVE2D_HAS_SDK
-    // TODO: 调用真实 CubismRenderer 渲染模型
-#else
-    Renderer::DrawPlaceholder();
+    // 3. Draw model
+    auto* userModel = Model::GetUserModel();
+    if (userModel && userModel->GetModel())
+    {
+        auto* renderer = userModel->GetRenderer<
+            Live2D::Cubism::Framework::Rendering::CubismRenderer_D3D11>();
+        if (renderer)
+        {
+            // Setup projection matrix
+            int w = Renderer::GetWidth();
+            int h = Renderer::GetHeight();
+            if (w > 0 && h > 0)
+            {
+                Live2D::Cubism::Framework::CubismMatrix44 projection;
+                // Simple orthographic: map model coordinates to screen
+                float scaleX = 2.0f / (float)w;
+                float scaleY = 2.0f / (float)h;
+                projection.Scale(scaleX, scaleY);
+
+                // Apply model matrix
+                auto* modelMatrix = userModel->GetModelMatrix();
+                if (modelMatrix)
+                {
+                    projection.MultiplyByMatrix(modelMatrix);
+                }
+
+                renderer->SetMvpMatrix(&projection);
+                renderer->DrawModel();
+            }
+        }
+    }
 #endif
+
+    // 4. End frame (present)
     Renderer::EndFrame();
 
-    // 3. FPS
+    // 5. FPS
     FpsCounter::Tick();
 }
 
 void Bridge_Resize(int width, int height)
 {
     Renderer::Resize(width, height);
+
+#ifdef LIVE2D_HAS_SDK
+    // Notify model's renderer of new size
+    auto* userModel = Model::GetUserModel();
+    if (userModel)
+    {
+        userModel->SetRenderTargetSize(width, height);
+    }
+#endif
 }
 
 // ============================================================
-// 动画 / 状态
+// Animation / State
 // ============================================================
 
 void Bridge_SetMotionGroup(const char* group, const char* name)
@@ -127,7 +190,7 @@ void Bridge_SetParameter(const char* paramId, float value)
 }
 
 // ============================================================
-// 眼球追踪
+// Eye tracking
 // ============================================================
 
 void Bridge_SetEyeTarget(float x, float y)
@@ -137,7 +200,7 @@ void Bridge_SetEyeTarget(float x, float y)
 }
 
 // ============================================================
-// 信息查询
+// Info
 // ============================================================
 
 float Bridge_GetFPS()

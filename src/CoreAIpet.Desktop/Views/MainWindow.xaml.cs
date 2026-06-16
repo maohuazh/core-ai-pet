@@ -45,14 +45,6 @@ public partial class MainWindow : Window
 
         try
         {
-            // 获取窗口句柄
-            var hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero)
-            {
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Failed to get window handle");
-                return;
-            }
-
             // 获取渲染宿主
             var app = (App)App.Current;
             var renderHost = app.Host.Services.GetService<Live2D.Rendering.Live2DRenderHost>();
@@ -62,10 +54,24 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // 初始化渲染器
-            var width = (int)CharacterDisplay.Width;
-            var height = (int)CharacterDisplay.Height;
-            var success = renderHost.Initialize(hwnd, width, height);
+            // 先显示 Live2DHostControl 以触发子窗口 HWND 创建
+            Live2DDisplay.Visibility = Visibility.Visible;
+            Live2DDisplay.UpdateLayout();
+
+            var childHwnd = Live2DDisplay.ChildHwnd;
+            if (childHwnd == IntPtr.Zero)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Live2DHostControl child HWND not created");
+                return;
+            }
+
+            // 初始化渲染器（在子窗口 HWND 上创建 D3D11 swap chain）
+            var width = (int)Live2DDisplay.ActualWidth;
+            var height = (int)Live2DDisplay.ActualHeight;
+            if (width <= 0) width = 200;
+            if (height <= 0) height = 300;
+
+            var success = renderHost.Initialize(childHwnd, width, height);
 
             if (!success)
             {
@@ -85,9 +91,8 @@ public partial class MainWindow : Window
             renderHost.StartRendering();
             _live2DInitialized = true;
 
-            // 切换显示：隐藏 Canvas，显示 Live2D
+            // 隐藏 Canvas 占位符
             CharacterDisplay.Visibility = Visibility.Collapsed;
-            Live2DDisplay.Visibility = Visibility.Visible;
 
             System.Diagnostics.Debug.WriteLine("[MainWindow] Live2D initialized successfully");
         }

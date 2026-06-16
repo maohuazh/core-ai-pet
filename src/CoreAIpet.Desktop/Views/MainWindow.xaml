@@ -4,7 +4,7 @@
         xmlns:controls="clr-namespace:CoreAIpet.Desktop.Controls"
         xmlns:rendering="clr-namespace:CoreAIpet.Desktop.Live2D.Rendering"
         Title="CoreAIpet"
-        Width="280" Height="380"
+        Width="280" Height="400"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -14,19 +14,19 @@
         WindowStartupLocation="Manual">
 
     <!-- 外边距作为透明区域 -->
-    <Grid Margin="20">
+    <Grid Margin="10">
         <!-- 卡片背景 + 阴影 -->
         <Border Background="#FF2B3A6B"
                 CornerRadius="16"
                 BorderBrush="#80FFFFFF"
                 BorderThickness="1">
             <Border.Effect>
-                <DropShadowEffect ShadowDepth="0" BlurRadius="24" Opacity="0.6" Color="Black"/>
+                <DropShadowEffect ShadowDepth="0" BlurRadius="12" Opacity="0.6" Color="Black"/>
             </Border.Effect>
         </Border>
 
         <!-- 内容 -->
-        <Grid Margin="20">
+        <Grid Margin="10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -39,13 +39,13 @@
                 <!-- Canvas 占位符（Live2D 未加载时显示） -->
                 <controls:PetCharacterControl x:Name="CharacterDisplay"
                                               Width="200"
-                                              Height="240"
+                                              Height="280"
                                               Visibility="Visible"/>
 
                 <!-- Live2D 渲染宿主（Live2D 加载后显示） -->
                 <rendering:Live2DHostControl x:Name="Live2DDisplay"
                                              Width="200"
-                                             Height="240"
+                                             Height="280"
                                              Visibility="Collapsed"/>
             </Grid>
 
@@ -69,7 +69,7 @@
 
             <!-- 径向菜单 -->
             <controls:RadialMenuControl x:Name="RadialMenu"
-                Width="200" Height="200"
+                Width="100" Height="100"
                 Visibility="Collapsed"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center" />

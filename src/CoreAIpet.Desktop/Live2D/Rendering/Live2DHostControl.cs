@@ -19,24 +19,65 @@ public class Live2DHostControl : HwndHost
 
     public IntPtr ChildHwnd => _childHwnd;
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr CreateWindowEx(
+        uint dwExStyle,
+        string lpClassName,
+        string lpWindowName,
+        uint dwStyle,
+        int x,
+        int y,
+        int nWidth,
+        int nHeight,
+        IntPtr hWndParent,
+        IntPtr hMenu,
+        IntPtr hInstance,
+        IntPtr lpParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyWindow(IntPtr hWnd);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetModuleHandle(string lpModuleName);
+
     protected override HandleRef BuildWindowCore(HandleRef hwndParent)
     {
         // 创建子窗口作为 C++ 渲染目标
-        // 实际项目中会通过 CreateWindowEx 创建子窗口
-        // MVP 阶段使用父窗口的 HWND
-        _childHwnd = hwndParent.Handle;
+        const uint WS_CHILD = 0x40000000;
+        const uint WS_VISIBLE = 0x10000000;
+
+        _childHwnd = CreateWindowEx(
+            0,
+            "STATIC",
+            "Live2DHost",
+            WS_CHILD | WS_VISIBLE,
+            0, 0, _width > 0 ? _width : 200, _height > 0 ? _height : 300,
+            hwndParent.Handle,
+            IntPtr.Zero,
+            GetModuleHandle(null),
+            IntPtr.Zero);
+
+        if (_childHwnd == IntPtr.Zero)
+        {
+            throw new InvalidOperationException($"Failed to create child window. Error: {Marshal.GetLastWin32Error()}");
+        }
+
         HwndCreated?.Invoke(_childHwnd, _width, _height);
         return new HandleRef(this, _childHwnd);
     }
 
     protected override void DestroyWindowCore(HandleRef hwnd)
     {
-        // 子窗口随父窗口销毁
+        if (_childHwnd != IntPtr.Zero)
+        {
+            DestroyWindow(_childHwnd);
+            _childHwnd = IntPtr.Zero;
+        }
     }
 
     protected override Size MeasureOverride(Size constraint)
     {
-        return new Size(200, 300); // 默认尺寸
+        return new Size(200, 280); // 默认尺寸
     }
 
     protected override Size ArrangeOverride(Size finalSize)

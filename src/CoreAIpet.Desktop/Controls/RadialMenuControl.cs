@@ -12,8 +12,8 @@ namespace CoreAIpet.Desktop.Controls;
 public class RadialMenuControl : Canvas
 {
     private readonly List<MenuItemData> _items = new();
-    private const double MenuRadius = 80;
-    private const double ItemSize = 40;
+    private const double MenuRadius = 40;
+    private const double ItemSize = 20;
 
     public event Action<PluginMenuItem>? ItemClicked;
 
