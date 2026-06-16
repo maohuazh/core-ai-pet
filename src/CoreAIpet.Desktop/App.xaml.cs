@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using CoreAIpet.Core.Interfaces;
 using CoreAIpet.Desktop.Views;
+using HostingHost = Microsoft.Extensions.Hosting.Host;
 
 namespace CoreAIpet.Desktop;
 
@@ -15,6 +16,11 @@ namespace CoreAIpet.Desktop;
 public partial class App : Application
 {
     private IHost? _host;
+
+    /// <summary>
+    /// 公开的 Host 属性，供其他组件访问 DI 容器
+    /// </summary>
+    public IHost Host => _host!;
 
     public App()
     {
@@ -51,7 +57,7 @@ public partial class App : Application
             }
 
             // 构建 Generic Host
-            _host = Host.CreateDefaultBuilder()
+            _host = HostingHost.CreateDefaultBuilder()
                 .UseContentRoot(AppContext.BaseDirectory)
                 .ConfigureAppConfiguration((ctx, config) =>
                 {

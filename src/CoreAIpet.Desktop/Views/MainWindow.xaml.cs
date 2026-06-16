@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using Microsoft.Extensions.DependencyInjection;
+using CoreAIpet.Core.Interfaces;
 using CoreAIpet.Desktop.Behaviors;
 
 namespace CoreAIpet.Desktop.Views;
@@ -74,5 +76,51 @@ public partial class MainWindow : Window
         {
             RadialMenuAnimations.AnimateHide(RadialMenu);
         }
+    }
+
+    // ============================================================
+    // 右键菜单事件处理
+    // ============================================================
+
+    private void OnOpenChat_Click(object sender, RoutedEventArgs e)
+    {
+        // TODO: 打开聊天窗口
+    }
+
+    private void OnToggleMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (RadialMenu.Visibility == Visibility.Visible)
+        {
+            HideMenu();
+        }
+        else
+        {
+            ShowMenu();
+        }
+    }
+
+    private void OnSettings_Click(object sender, RoutedEventArgs e)
+    {
+        // TODO: 打开设置窗口
+    }
+
+    private void OnDebug_Click(object sender, RoutedEventArgs e)
+    {
+        // TODO: 打开调试面板
+    }
+
+    private void OnExit_Click(object sender, RoutedEventArgs e)
+    {
+        // 保存窗口位置
+        try
+        {
+            var posService = ((App)App.Current).Host.Services
+                .GetRequiredService<IPositionService>();
+            posService.SaveAsync(new WindowPosition(Left, Top)).Wait();
+        }
+        catch { /* 忽略保存失败 */ }
+
+        // 退出应用
+        App.Current.Shutdown();
     }
 }
