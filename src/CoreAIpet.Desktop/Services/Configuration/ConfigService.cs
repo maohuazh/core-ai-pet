@@ -19,6 +19,7 @@ public class ConfigService : IConfigService
     public SystemSettings System => _settings.System;
     public AISettings AISettings => _settings.AI;
     public DebugSettings Debug => _settings.Debug;
+    public Live2DSettings Live2D => _settings.Live2D;
 
     public ConfigService(JsonConfigStore store)
     {
@@ -40,6 +41,7 @@ public class ConfigService : IConfigService
             "debug" => (_settings.Debug as T) ?? new T(),
             "position" => (_settings.Position as T) ?? new T(),
             "plugins" => (_settings.Plugins as T) ?? new T(),
+            "live2d" => (_settings.Live2D as T) ?? new T(),
             _ => new T()
         };
     }
@@ -54,6 +56,7 @@ public class ConfigService : IConfigService
             case "debug": _settings.Debug = value as DebugSettings ?? _settings.Debug; break;
             case "position": _settings.Position = value as PositionConfig ?? _settings.Position; break;
             case "plugins": _settings.Plugins = value as PluginsConfig ?? _settings.Plugins; break;
+            case "live2d": _settings.Live2D = value as Live2DSettings ?? _settings.Live2D; break;
         }
         SettingsChanged?.Invoke(this, new SettingsChangedEventArgs { Section = section });
     }

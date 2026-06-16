@@ -41,5 +41,15 @@
                 <Button Content="测试连接" Width="100" HorizontalAlignment="Left"/>
             </StackPanel>
         </TabItem>
+        <TabItem Header="Live2D">
+            <StackPanel Margin="10">
+                <TextBlock Text="模型路径" Margin="0,0,0,5"/>
+                <TextBox x:Name="ModelPathBox" Margin="0,0,0,10" IsReadOnly="True"/>
+                <TextBlock Text="模型变体" Margin="0,0,0,5"/>
+                <ComboBox x:Name="VariantCombo" Margin="0,0,0,10" DisplayMemberPath="DisplayName"/>
+                <Button x:Name="ApplyVariantButton" Content="应用变体" Width="100" HorizontalAlignment="Left" Margin="0,10,0,0" Click="ApplyVariant_Click"/>
+                <TextBlock x:Name="StatusText" Margin="0,15,0,0" Foreground="Gray"/>
+            </StackPanel>
+        </TabItem>
     </TabControl>
 </Window>

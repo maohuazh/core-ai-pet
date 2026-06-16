@@ -32,6 +32,11 @@ public class Live2DRenderHost : IDisposable
         return _bridge.LoadModel(modelPath);
     }
 
+    public void UnloadModel()
+    {
+        _bridge.UnloadModel();
+    }
+
     public void StartRendering()
     {
         _frameTimer.Start();

@@ -1,9 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using Microsoft.Extensions.DependencyInjection;
 using CoreAIpet.Core.Interfaces;
 using CoreAIpet.Desktop.Behaviors;
+using CoreAIpet.Desktop.Services.Live2D;
 
 namespace CoreAIpet.Desktop.Views;
 
@@ -13,6 +15,8 @@ namespace CoreAIpet.Desktop.Views;
 public partial class MainWindow : Window
 {
     private readonly AutoHideBehavior? _autoHide;
+    private readonly ModelLoaderService? _modelLoader;
+    private bool _live2DInitialized;
 
     public MainWindow()
     {
@@ -23,11 +27,74 @@ public partial class MainWindow : Window
         MouseMove += OnMouseMove;
         MouseEnter += OnMouseEnter;
         MouseLeave += OnMouseLeave;
+        Loaded += OnLoaded;
 
         _autoHide = new AutoHideBehavior(this, () => HideMenu());
 
+        // 从 DI 容器获取服务
+        var app = (App)App.Current;
+        _modelLoader = app.Host.Services.GetService<ModelLoaderService>();
+
         // 动态创建右键菜单（无边框窗口需要在代码中创建）
         CreateContextMenu();
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_live2DInitialized || _modelLoader == null) return;
+
+        try
+        {
+            // 获取窗口句柄
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Failed to get window handle");
+                return;
+            }
+
+            // 获取渲染宿主
+            var app = (App)App.Current;
+            var renderHost = app.Host.Services.GetService<Live2D.Rendering.Live2DRenderHost>();
+            if (renderHost == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Live2DRenderHost not available");
+                return;
+            }
+
+            // 初始化渲染器
+            var width = (int)CharacterDisplay.Width;
+            var height = (int)CharacterDisplay.Height;
+            var success = renderHost.Initialize(hwnd, width, height);
+
+            if (!success)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Live2D renderer initialization failed");
+                return;
+            }
+
+            // 加载模型
+            success = _modelLoader.LoadModel();
+            if (!success)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Model loading failed: {_modelLoader.LastError}");
+                return;
+            }
+
+            // 启动渲染循环
+            renderHost.StartRendering();
+            _live2DInitialized = true;
+
+            // 切换显示：隐藏 Canvas，显示 Live2D
+            CharacterDisplay.Visibility = Visibility.Collapsed;
+            Live2DDisplay.Visibility = Visibility.Visible;
+
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Live2D initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Live2D initialization error: {ex.Message}");
+        }
     }
 
     private void CreateContextMenu()
@@ -82,7 +149,17 @@ public partial class MainWindow : Window
             double cy = CharacterDisplay.Height / 2;
             float nx = (float)((pos.X - cx) / cx);
             float ny = (float)((pos.Y - cy) / cy);
+
+            // 发送到 Canvas 渲染器
             CharacterDisplay.SetEyeTarget(nx, ny);
+
+            // 如果 Live2D 已初始化，也发送到 Live2D 渲染器
+            if (_live2DInitialized)
+            {
+                var app = (App)App.Current;
+                var renderHost = app.Host.Services.GetService<Live2D.Rendering.Live2DRenderHost>();
+                renderHost?.SetEyeTarget(nx, ny);
+            }
         }
     }
 

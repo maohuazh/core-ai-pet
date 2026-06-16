@@ -13,6 +13,10 @@
             <TextBlock x:Name="FpsText" Text="FPS: --"/>
             <TextBlock x:Name="CpuText" Text="CPU: --"/>
             <TextBlock x:Name="MemText" Text="Memory: --"/>
+            <TextBlock Text="Live2D 状态" FontWeight="Bold" Margin="0,15,0,5"/>
+            <TextBlock x:Name="RendererText" Text="渲染器: --"/>
+            <TextBlock x:Name="ModelStatusText" Text="模型: --"/>
+            <TextBlock x:Name="ModelErrorText" Text="" Foreground="Red" TextWrapping="Wrap"/>
             <TextBlock Text="插件状态" FontWeight="Bold" Margin="0,15,0,5"/>
             <ListBox x:Name="PluginList" Height="150"/>
         </StackPanel>

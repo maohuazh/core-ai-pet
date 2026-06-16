@@ -5,6 +5,10 @@ using CoreAIpet.Core.Interfaces;
 using CoreAIpet.Desktop.Services.Configuration;
 using CoreAIpet.Desktop.Services.Events;
 using CoreAIpet.Desktop.Services.Diagnostics;
+using CoreAIpet.Desktop.Live2D.Bridge;
+using CoreAIpet.Desktop.Live2D.Rendering;
+using CoreAIpet.Desktop.Services.Character;
+using CoreAIpet.Desktop.Services.Live2D;
 
 namespace CoreAIpet.Desktop;
 
@@ -41,11 +45,12 @@ public static class CompositionRoot
         // services.AddAIServices(configuration);
 
         // === Live2D (Group 4) ===
-        // services.AddSingleton<Live2DBridgeWrapper>();
-        // services.AddSingleton<Live2DRenderHost>();
+        services.AddSingleton<Live2DBridgeWrapper>();
+        services.AddSingleton<Live2DRenderHost>();
+        services.AddSingleton<ModelLoaderService>();
 
         // === Character (Group 4) ===
-        // services.AddSingleton<ICharacterController, CharacterController>();
+        services.AddSingleton<ICharacterController, CharacterController>();
 
         // === Plugins (Group 8) ===
         // services.AddSingleton<PluginManager>();

@@ -24,6 +24,9 @@ public class AppSettings
 
     [JsonPropertyName("debug")]
     public DebugSettings Debug { get; set; } = new();
+
+    [JsonPropertyName("live2d")]
+    public Live2DSettings Live2D { get; set; } = new();
 }
 
 /// <summary>
@@ -195,4 +198,16 @@ public class DebugSettings
 
     [JsonPropertyName("showFps")]
     public bool ShowFps { get; set; } = false;
+}
+
+/// <summary>
+/// Live2D 设置
+/// </summary>
+public class Live2DSettings
+{
+    [JsonPropertyName("modelPath")]
+    public string ModelPath { get; set; } = @"C:\Change Top\git\open-source\live2d\model\22";
+
+    [JsonPropertyName("modelVariant")]
+    public string ModelVariant { get; set; } = "model.default.json";
 }
