@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:CoreAIpet.Desktop.Controls"
         Title="CoreAIpet"
-        Width="320" Height="380"
+        Width="280" Height="380"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -12,9 +12,9 @@
         ResizeMode="NoResize"
         WindowStartupLocation="Manual">
 
-    <!-- 外边距作为透明区域，让圆角 Border 渲染在窗口内部 -->
+    <!-- 外边距作为透明区域 -->
     <Grid Margin="20">
-        <!-- 不透明背景 + 阴影 -->
+        <!-- 卡片背景 + 阴影 -->
         <Border Background="#FF2B3A6B"
                 CornerRadius="16"
                 BorderBrush="#80FFFFFF"
@@ -24,61 +24,46 @@
             </Border.Effect>
         </Border>
 
-        <!-- 内容区域 -->
-        <Grid Margin="24">
+        <!-- 内容 -->
+        <Grid Margin="20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="1"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Center">
+            <!-- 角色区域：使用 WPF Canvas 占位角色 -->
+            <Border Grid.Row="0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <controls:PetCharacterControl x:Name="CharacterDisplay"
+                                              Width="200"
+                                              Height="240"/>
+            </Border>
 
-                <!-- 标题 -->
+            <!-- 底部信息 -->
+            <StackPanel Grid.Row="1"
+                        VerticalAlignment="Bottom"
+                        HorizontalAlignment="Center"
+                        Margin="0,8,0,0">
                 <TextBlock Text="CoreAIpet"
-                           FontSize="28" FontWeight="Bold"
+                           FontSize="18" FontWeight="Bold"
                            Foreground="White"
                            HorizontalAlignment="Center"
-                           TextOptions.TextRenderingMode="ClearType"
-                           TextOptions.TextFormattingMode="Display"
                            FontFamily="Microsoft YaHei UI"/>
-
-                <!-- 副标题 -->
-                <TextBlock Text="Mock Mode — Live2D Bridge 未编译"
-                           FontSize="13"
-                           Foreground="#D0FFFFFF"
-                           HorizontalAlignment="Center"
-                           Margin="0,14,0,0"
-                           FontFamily="Microsoft YaHei UI"
-                           LineHeight="20"/>
-
-                <!-- 功能提示 -->
-                <TextBlock Text="Alt+Space 打开聊天"
-                           FontSize="12"
-                           Foreground="#A0FFFFFF"
-                           HorizontalAlignment="Center"
-                           Margin="0,10,0,0"
-                           FontFamily="Microsoft YaHei UI"/>
-
-                <TextBlock Text="鼠标悬停显示菜单（占位）"
-                           FontSize="12"
+                <TextBlock Text="鼠标移动 → 眼球跟随"
+                           FontSize="11"
                            Foreground="#A0FFFFFF"
                            HorizontalAlignment="Center"
                            Margin="0,4,0,0"
                            FontFamily="Microsoft YaHei UI"/>
             </StackPanel>
+
+            <!-- 径向菜单 -->
+            <controls:RadialMenuControl x:Name="RadialMenu"
+                Width="200" Height="200"
+                Visibility="Collapsed"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center" />
         </Grid>
-
-        <!-- Live2D 角色宿主区域（待 Bridge 编译后启用） -->
-        <Border x:Name="Live2DHostArea" Background="Transparent" Visibility="Collapsed" />
-
-        <!-- 径向菜单 -->
-        <controls:RadialMenuControl x:Name="RadialMenu"
-            Width="200" Height="200"
-            Visibility="Collapsed"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center" />
     </Grid>
 </Window>
