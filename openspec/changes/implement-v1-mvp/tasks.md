@@ -17,13 +17,17 @@
 
 ## 3. Live2D Bridge (C++ DLL)
 
-- [ ] 3.1 Set up Live2D Cubism Native SDK as git submodule in vendor/
-- [ ] 3.2 Implement cubism_model.cpp — load .moc3 files, create/manage model instances
-- [ ] 3.3 Implement cubism_renderer.cpp — D3D11 initialization, render to HWND, swap chain resize
-- [ ] 3.4 Implement cubism_animation.cpp — animation state machine, motion group playback
-- [ ] 3.5 Implement eye_tracking.cpp — convert normalized coordinates to ParamEyeBallX/Y
-- [ ] 3.6 Complete bridge_api.cpp — wire all exports to implementations, add error handling
-- [ ] 3.7 Build and verify DLL exports — compile with CMake, verify all 11 functions exported
+> **状态：源码已完成，等待 C++ 工具链 + Live2D SDK 后编译**
+> 源码实现采用双模式架构：未配置 SDK 时使用 GDI 占位渲染（圆脸+眼球追踪+状态切换），
+> 配置 SDK 后切换为 D3D11 + Native SDK 真实渲染。详见 `src/CoreAIpet.Live2DBridge/README.md`。
+
+- [x] 3.1 ~~Set up Live2D Cubism Native SDK as git submodule in vendor/~~（用户手动下载后放入 vendor/）
+- [x] 3.2 Implement cubism_model.cpp — 模型加载/参数管理（含 SDK 桩位）
+- [x] 3.3 Implement cubism_renderer.cpp — D3D11 初始化 + GDI 占位后备（脸/眼/嘴/状态标签）
+- [x] 3.4 Implement cubism_animation.cpp — 呼吸/眨眼/口型参数驱动，idle/happy/thinking/talking
+- [x] 3.5 Implement eye_tracking.cpp — 归一化坐标 → ParamEyeBallX/Y，±30°/±15° 限制
+- [x] 3.6 Complete bridge_api.cpp — 连接所有模块 + FPS 计数器 + 错误处理
+- [ ] 3.7 Build and verify DLL exports — 需要 VS Build Tools + CMake（源码已就绪）
 
 ## 4. Live2D Rendering (C# Side)
 

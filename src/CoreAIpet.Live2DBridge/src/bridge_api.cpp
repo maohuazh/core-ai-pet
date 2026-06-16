@@ -1,93 +1,146 @@
-#include "bridge_api.h"
-#include "bridge_types.h"
+// ============================================================
+// bridge_api.cpp — 导出函数实现（连接各子模块）
+// ============================================================
 
-// TODO: 引入 Live2D Cubism Native SDK
-// #include <CubismCdi.hpp>
-// #include <Model/CubismUserModel.hpp>
+#include "bridge_api.h"
+#include "bridge_internal.h"
+#include <chrono>
 
 static bool g_initialized = false;
-static bool g_modelLoaded = false;
+
+// ------------------------------------------------------------
+// FPS 计数器
+// ------------------------------------------------------------
+namespace FpsCounter {
+static DWORD g_lastTick = 0;
+static int   g_frames = 0;
 static float g_fps = 0.0f;
 
-// === 初始化/释放 ===
-
-bool Bridge_Initialize(const char* sdkKey)
+void Tick()
 {
-    // TODO: 调用 CubismStartup() 初始化 SDK
+    DWORD now = ::GetTickCount();
+    ++g_frames;
+    if (g_lastTick == 0) g_lastTick = now;
+    DWORD dt = now - g_lastTick;
+    if (dt >= 500) {  // 每 0.5s 刷新一次
+        g_fps = (float)g_frames * 1000.0f / (float)dt;
+        g_frames = 0;
+        g_lastTick = now;
+    }
+}
+
+float Value() { return g_fps; }
+}
+
+// ============================================================
+// 初始化 / 释放
+// ============================================================
+
+bool Bridge_Initialize(const char* /*sdkKey*/)
+{
+    if (g_initialized) return true;
+    if (!Model::Initialize()) return false;
+    Animation::Initialize();
     g_initialized = true;
     return true;
 }
 
 void Bridge_Shutdown()
 {
-    if (g_modelLoaded)
-    {
-        Bridge_UnloadModel();
-    }
-    // TODO: 调用 CubismDispose() 释放 SDK
+    if (!g_initialized) return;
+    Bridge_UnloadModel();
+    Renderer::Shutdown();
+    Model::Shutdown();
     g_initialized = false;
 }
 
-// === 模型管理 ===
+// ============================================================
+// 模型管理
+// ============================================================
 
 bool Bridge_LoadModel(const char* modelPath)
 {
     if (!g_initialized) return false;
-    // TODO: 加载 .moc3 文件并创建模型
-    g_modelLoaded = true;
+    if (!modelPath) return false;
+    if (!Model::Load(modelPath)) return false;
+    // 重置动画状态到 idle
+    Animation::SetMotion("idle", "idle_00");
     return true;
 }
 
 void Bridge_UnloadModel()
 {
-    // TODO: 释放模型资源
-    g_modelLoaded = false;
+    Model::Unload();
 }
 
-// === 渲染 ===
+// ============================================================
+// 渲染
+// ============================================================
 
 bool Bridge_InitializeRenderer(HWND hwnd, int width, int height)
 {
-    // TODO: 初始化 Direct3D 11 渲染器，绑定到 hwnd
-    return true;
+    if (!hwnd) return false;
+    if (width <= 0)  width  = 200;
+    if (height <= 0) height = 300;
+    return Renderer::Initialize(hwnd, width, height);
 }
 
 void Bridge_Render()
 {
-    if (!g_modelLoaded) return;
-    // TODO: 执行单帧渲染
-    // 1. 更新模型参数
-    // 2. 渲染到 D3D11 后备缓冲区
+    if (!Model::IsLoaded()) return;
+
+    // 1. 更新动画 / 参数
+    Animation::Update();
+
+    // 2. 渲染
+    Renderer::BeginFrame();
+#ifdef LIVE2D_HAS_SDK
+    // TODO: 调用真实 CubismRenderer 渲染模型
+#else
+    Renderer::DrawPlaceholder();
+#endif
+    Renderer::EndFrame();
+
+    // 3. FPS
+    FpsCounter::Tick();
 }
 
 void Bridge_Resize(int width, int height)
 {
-    // TODO: 调整 D3D11 交换链尺寸
+    Renderer::Resize(width, height);
 }
 
-// === 动画/状态 ===
+// ============================================================
+// 动画 / 状态
+// ============================================================
 
 void Bridge_SetMotionGroup(const char* group, const char* name)
 {
-    // TODO: 播放指定动画组/名称的动画
+    if (!g_initialized) return;
+    Animation::SetMotion(group, name);
 }
 
 void Bridge_SetParameter(const char* paramId, float value)
 {
-    // TODO: 设置模型参数 (如 ParamAngleX, ParamEyeLOpen 等)
+    if (!g_initialized) return;
+    Model::SetParameter(paramId, value);
 }
 
-// === 眼球追踪 ===
+// ============================================================
+// 眼球追踪
+// ============================================================
 
 void Bridge_SetEyeTarget(float x, float y)
 {
-    // TODO: 将 x,y (-1.0~1.0) 转换为眼球追踪参数
-    // ParamEyeBallX, ParamEyeBallY
+    if (!g_initialized) return;
+    EyeTracking::Apply(x, y);
 }
 
-// === 信息查询 ===
+// ============================================================
+// 信息查询
+// ============================================================
 
 float Bridge_GetFPS()
 {
-    return g_fps;
+    return FpsCounter::Value();
 }

@@ -14,27 +14,27 @@ extern "C" {
 #endif
 
 // === 初始化/释放 ===
-BRIDGE_API bool Bridge_Initialize(const char* sdkKey);
-BRIDGE_API void Bridge_Shutdown();
+BRIDGE_API bool __cdecl Bridge_Initialize(const char* sdkKey);
+BRIDGE_API void __cdecl Bridge_Shutdown();
 
 // === 模型管理 ===
-BRIDGE_API bool Bridge_LoadModel(const char* modelPath);
-BRIDGE_API void Bridge_UnloadModel();
+BRIDGE_API bool __cdecl Bridge_LoadModel(const char* modelPath);
+BRIDGE_API void __cdecl Bridge_UnloadModel();
 
 // === 渲染 ===
-BRIDGE_API bool Bridge_InitializeRenderer(HWND hwnd, int width, int height);
-BRIDGE_API void Bridge_Render();
-BRIDGE_API void Bridge_Resize(int width, int height);
+BRIDGE_API bool __cdecl Bridge_InitializeRenderer(HWND hwnd, int width, int height);
+BRIDGE_API void __cdecl Bridge_Render();
+BRIDGE_API void __cdecl Bridge_Resize(int width, int height);
 
 // === 动画/状态 ===
-BRIDGE_API void Bridge_SetMotionGroup(const char* group, const char* name);
-BRIDGE_API void Bridge_SetParameter(const char* paramId, float value);
+BRIDGE_API void __cdecl Bridge_SetMotionGroup(const char* group, const char* name);
+BRIDGE_API void __cdecl Bridge_SetParameter(const char* paramId, float value);
 
 // === 眼球追踪 ===
-BRIDGE_API void Bridge_SetEyeTarget(float x, float y);
+BRIDGE_API void __cdecl Bridge_SetEyeTarget(float x, float y);
 
 // === 信息查询 ===
-BRIDGE_API float Bridge_GetFPS();
+BRIDGE_API float __cdecl Bridge_GetFPS();
 
 #ifdef __cplusplus
 }
