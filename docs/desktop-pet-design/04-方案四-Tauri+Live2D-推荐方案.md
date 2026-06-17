@@ -787,6 +787,620 @@ impl ChatService {
 
 ---
 
+## 交互设计（增强）
+
+> **决策记录**：基于"悬浮按钮"和"自定义快捷聊天"需求，确认 Tauri + Live2D 方案为首选。
+> Vue 3 组件化开发 + CSS 动画可实现流畅的悬浮交互，同时保持轻量高效。
+
+### 1. 悬浮菜单设计
+
+鼠标移入宠物区域时，多个功能按钮从宠物周围弹出：
+
+```
+                    ┌─────────────────────┐
+                    │   💬 聊天           │
+        ┌───────────┤                     │
+        │  🏠 首页   └─────────────────────┘
+        │
+   ┌────┴────┐
+   │         │  ← Live2D 宠物
+   │  Pet    │
+   │         │
+   └────┬────┘
+        │
+        │           ┌─────────────────────┐
+        └───────────┤   ⚙️ 设置           │
+                    └─────────────────────┘
+                    ┌─────────────────────┐
+                    │   🎨 主题           │
+                    └─────────────────────┘
+```
+
+**交互逻辑：**
+- 鼠标移入宠物区域 → 按钮从宠物周围弹出（环形/侧边栏）
+- 鼠标移出 → 按钮淡出收回
+- 点击按钮 → 触发对应功能
+- 透明区域 → 点击穿透到桌面
+
+### 2. 悬浮菜单组件
+
+```vue
+<!-- src/components/pet/PetHoverMenu.vue -->
+<template>
+  <Transition name="fade">
+    <div v-if="visible" class="hover-menu" :style="menuStyle">
+      <button
+        v-for="(item, index) in items"
+        :key="item.id"
+        class="menu-btn"
+        :style="getButtonStyle(index)"
+        @click="handleClick(item)"
+        @mouseenter="hoveredBtn = item.id"
+        @mouseleave="hoveredBtn = null"
+      >
+        <span class="icon">{{ item.icon }}</span>
+        <Transition name="tooltip">
+          <span class="label" v-if="hoveredBtn === item.id">
+            {{ item.label }}
+          </span>
+        </Transition>
+      </button>
+    </div>
+  </Transition>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+
+export interface MenuItem {
+  id: string
+  icon: string
+  label: string
+  action: string
+}
+
+const props = withDefaults(defineProps<{
+  items: MenuItem[]
+  layout?: 'radial' | 'sidebar-left' | 'sidebar-right' | 'topbar'
+  radius?: number
+}>(), {
+  layout: 'radial',
+  radius: 60
+})
+
+const emit = defineEmits<{
+  action: [action: string]
+}>()
+
+const visible = ref(false)
+const hoveredBtn = ref<string | null>(null)
+
+// 计算每个按钮的位置（环形布局）
+function getButtonStyle(index: number) {
+  if (props.layout === 'radial') {
+    const totalItems = props.items.length
+    const startAngle = -90 // 从顶部开始
+    const angleStep = 180 / (totalItems - 1) // 半圆分布
+    const angle = startAngle + angleStep * index
+    const radian = (angle * Math.PI) / 180
+    
+    return {
+      '--offset-x': `${Math.cos(radian) * props.radius}px`,
+      '--offset-y': `${Math.sin(radian) * props.radius}px`,
+    }
+  }
+  return {}
+}
+
+const menuStyle = computed(() => ({
+  '--layout': props.layout,
+}))
+
+function show() { visible.value = true }
+function hide() { visible.value = false }
+
+function handleClick(item: MenuItem) {
+  emit('action', item.action)
+}
+
+defineExpose({ show, hide })
+</script>
+
+<style scoped>
+.hover-menu {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.menu-btn {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  
+  /* 从中心弹出动画 */
+  transform: translate(
+    calc(var(--offset-x, 0) * 0.3),
+    calc(var(--offset-y, 0) * 0.3)
+  );
+  opacity: 0;
+  animation: popIn 0.3s ease-out forwards;
+  animation-delay: calc(var(--index) * 50ms);
+  
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.menu-btn:hover {
+  transform: translate(var(--offset-x, 0), var(--offset-y, 0)) scale(1.15);
+  background: white;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.menu-btn .icon {
+  font-size: 20px;
+}
+
+.menu-btn .label {
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translate(var(--offset-x), var(--offset-y)) scale(1);
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
+```
+
+### 3. 快捷聊天窗口设计
+
+```
+┌────────────────────────────────────────┐
+│  💬 快捷聊天                      [×]   │
+├────────────────────────────────────────┤
+│  快捷指令                               │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐  │
+│  │ 🌐 翻译  │ │ 📝 总结  │ │ 💡 解释  │  │
+│  └─────────┘ └─────────┘ └─────────┘  │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐  │
+│  │ ✉️ 邮件  │ │ 🧠 风暴  │ │ + 自定义 │  │
+│  └─────────┘ └─────────┘ └─────────┘  │
+├────────────────────────────────────────┤
+│  对话区域                               │
+│  ┌──────────────────────────────────┐  │
+│  │ 🤖 你好！有什么可以帮你的？       │  │
+│  └──────────────────────────────────┘  │
+│  ┌──────────────────────────────────┐  │
+│  │ 👤 帮我翻译这段代码              │  │
+│  └──────────────────────────────────┘  │
+├────────────────────────────────────────┤
+│  [输入消息...]                    [➤]   │
+└────────────────────────────────────────┘
+```
+
+### 4. 快捷聊天组件
+
+```vue
+<!-- src/components/chat/QuickChat.vue -->
+<template>
+  <div class="quick-chat">
+    <!-- 快捷指令区 -->
+    <div class="quick-commands">
+      <div
+        v-for="cmd in commands"
+        :key="cmd.id"
+        class="command-chip"
+        @click="executeCommand(cmd)"
+      >
+        <span class="cmd-icon">{{ cmd.icon }}</span>
+        <span class="cmd-label">{{ cmd.label }}</span>
+      </div>
+      <div class="command-chip add" @click="openCommandEditor">
+        <span class="cmd-icon">+</span>
+        <span class="cmd-label">自定义</span>
+      </div>
+    </div>
+    
+    <!-- 消息列表 -->
+    <div class="messages" ref="messagesRef">
+      <div
+        v-for="msg in messages"
+        :key="msg.id"
+        class="message"
+        :class="msg.role"
+      >
+        <div class="avatar">{{ msg.role === 'user' ? '👤' : '🤖' }}</div>
+        <div class="content">{{ msg.content }}</div>
+      </div>
+    </div>
+    
+    <!-- 输入区 -->
+    <div class="input-area">
+      <input
+        v-model="inputText"
+        @keyup.enter="sendMessage"
+        placeholder="输入消息..."
+      />
+      <button @click="sendMessage" :disabled="!inputText.trim()">
+        ➤
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, nextTick } from 'vue'
+
+interface Command {
+  id: string
+  icon: string
+  label: string
+  prompt: string
+}
+
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: number
+}
+
+// 从 store 加载指令
+const commands = ref<Command[]>([
+  { id: '1', icon: '🌐', label: '翻译', prompt: '请翻译以下内容：' },
+  { id: '2', icon: '📝', label: '总结', prompt: '请总结以下内容的要点：' },
+  { id: '3', icon: '💡', label: '解释', prompt: '请解释以下代码的含义：' },
+  { id: '4', icon: '✉️', label: '邮件', prompt: '帮我写一封邮件，主题是：' },
+  { id: '5', icon: '🧠', label: '风暴', prompt: '让我们一起头脑风暴：' },
+])
+
+const messages = ref<Message[]>([])
+const inputText = ref('')
+const messagesRef = ref<HTMLElement>()
+
+function executeCommand(cmd: Command) {
+  inputText.value = cmd.prompt
+  // 自动聚焦输入框
+  nextTick(() => {
+    const input = document.querySelector('.input-area input') as HTMLInputElement
+    input?.focus()
+  })
+}
+
+async function sendMessage() {
+  const content = inputText.value.trim()
+  if (!content) return
+  
+  // 添加用户消息
+  messages.value.push({
+    id: Date.now().toString(),
+    role: 'user',
+    content,
+    timestamp: Date.now(),
+  })
+  
+  inputText.value = ''
+  
+  // 调用 AI 服务（通过 Tauri）
+  // const response = await invoke('send_chat_message', { message: content })
+  
+  // 滚动到底部
+  scrollToBottom()
+}
+
+function scrollToBottom() {
+  nextTick(() => {
+    if (messagesRef.value) {
+      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+    }
+  })
+}
+
+function openCommandEditor() {
+  // 打开指令编辑器弹窗
+}
+</script>
+
+<style scoped>
+.quick-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.quick-commands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.command-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #f5f5f5;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.command-chip:hover {
+  background: #e8e8e8;
+  transform: translateY(-1px);
+}
+
+.command-chip.add {
+  background: #f0f7ff;
+  color: #1976d2;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message {
+  display: flex;
+  gap: 8px;
+  max-width: 80%;
+}
+
+.message.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.message .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message .content {
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: #f5f5f5;
+}
+
+.message.user .content {
+  background: #1976d2;
+  color: white;
+}
+
+.input-area {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #eee;
+}
+
+.input-area input {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid #ddd;
+  border-radius: 24px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-area input:focus {
+  border-color: #1976d2;
+}
+
+.input-area button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #1976d2;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.input-area button:hover:not(:disabled) {
+  background: #1565c0;
+  transform: scale(1.05);
+}
+
+.input-area button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+</style>
+```
+
+### 5. 指令管理器
+
+```typescript
+// src/stores/commands.ts
+
+import { defineStore } from 'pinia'
+import { ref, watch } from 'vue'
+
+export interface QuickCommand {
+  id: string
+  icon: string
+  label: string
+  prompt: string
+  category: string
+  createdAt: number
+}
+
+export const useCommandsStore = defineStore('commands', () => {
+  const commands = ref<QuickCommand[]>([])
+  
+  // 从本地存储加载
+  function loadFromStorage() {
+    const saved = localStorage.getItem('quick-commands')
+    if (saved) {
+      commands.value = JSON.parse(saved)
+    } else {
+      // 默认指令
+      commands.value = [
+        { id: '1', icon: '🌐', label: '翻译', prompt: '请翻译：', category: '常用', createdAt: Date.now() },
+        { id: '2', icon: '📝', label: '总结', prompt: '请总结：', category: '常用', createdAt: Date.now() },
+        { id: '3', icon: '💡', label: '解释', prompt: '请解释：', category: '常用', createdAt: Date.now() },
+      ]
+    }
+  }
+  
+  // 保存到本地存储
+  function saveToStorage() {
+    localStorage.setItem('quick-commands', JSON.stringify(commands.value))
+  }
+  
+  // 监听变化自动保存
+  watch(commands, saveToStorage, { deep: true })
+  
+  // 添加指令
+  function addCommand(cmd: Omit<QuickCommand, 'id' | 'createdAt'>) {
+    commands.value.push({
+      ...cmd,
+      id: Date.now().toString(),
+      createdAt: Date.now(),
+    })
+  }
+  
+  // 更新指令
+  function updateCommand(id: string, updates: Partial<QuickCommand>) {
+    const index = commands.value.findIndex(c => c.id === id)
+    if (index !== -1) {
+      commands.value[index] = { ...commands.value[index], ...updates }
+    }
+  }
+  
+  // 删除指令
+  function removeCommand(id: string) {
+    commands.value = commands.value.filter(c => c.id !== id)
+  }
+  
+  // 按类别分组
+  function getByCategory() {
+    const grouped: Record<string, QuickCommand[]> = {}
+    commands.value.forEach(cmd => {
+      if (!grouped[cmd.category]) {
+        grouped[cmd.category] = []
+      }
+      grouped[cmd.category].push(cmd)
+    })
+    return grouped
+  }
+  
+  return {
+    commands,
+    loadFromStorage,
+    addCommand,
+    updateCommand,
+    removeCommand,
+    getByCategory,
+  }
+})
+```
+
+### 6. 更新后的文件结构
+
+```
+src/
+├── components/
+│   ├── pet/
+│   │   ├── PetCanvas.vue           # Live2D 画布
+│   │   ├── PetHoverMenu.vue        # [新增] 悬浮菜单
+│   │   ├── PetContextMenu.vue      # 右键菜单
+│   │   └── PetEffects.vue          # 特效组件
+│   ├── chat/
+│   │   ├── ChatView.vue            # 聊天主视图
+│   │   ├── QuickChat.vue           # [新增] 快捷聊天
+│   │   ├── CommandEditor.vue       # [新增] 指令编辑器
+│   │   └── ChatMessage.vue         # 消息组件
+│   └── settings/
+│       ├── GeneralPanel.vue
+│       ├── ApiPanel.vue
+│       ├── AppearancePanel.vue
+│       ├── ShortcutPanel.vue
+│       └── CommandPanel.vue        # [新增] 指令管理
+│
+├── stores/
+│   ├── pet.ts
+│   ├── chat.ts
+│   ├── settings.ts
+│   ├── ui.ts
+│   └── commands.ts                 # [新增] 指令状态
+│
+├── composables/
+│   ├── usePetEngine.ts
+│   ├── useLive2D.ts
+│   ├── useAnimation.ts
+│   ├── useBehavior.ts
+│   ├── useChatService.ts
+│   ├── useAiProvider.ts
+│   ├── useSpeechService.ts
+│   ├── useMcpClient.ts
+│   ├── useTauriBridge.ts
+│   ├── useTheme.ts
+│   ├── useHoverMenu.ts             # [新增] 悬浮菜单逻辑
+│   └── useQuickChat.ts             # [新增] 快捷聊天逻辑
+│
+└── types/
+    ├── pet.ts
+    ├── chat.ts
+    ├── settings.ts
+    ├── tauri.ts
+    ├── live2d.ts
+    └── commands.ts                 # [新增] 指令类型
+```
+
+---
+
 ## 扩展性设计
 
 ### 1. 渲染器抽象
@@ -969,7 +1583,17 @@ jobs:
 1. **轻量高效**：安装包仅 ~15MB，内存占用低
 2. **专业动画**：Live2D 提供流畅的角色动画
 3. **完整功能**：AI 聊天、MCP、TTS、行为系统
-4. **扩展性强**：模块化设计，支持插件扩展
-5. **跨平台**：Windows / macOS / Linux 全支持
+4. **交互体验**：悬浮菜单 + 快捷聊天，操作流畅自然
+5. **扩展性强**：模块化设计，支持插件扩展
+6. **跨平台**：Windows / macOS / Linux 全支持
 
-这是功能、性能、开发效率的最佳平衡方案。
+### 方案选择决策
+
+| 需求 | 选择理由 |
+|------|---------|
+| **悬浮多按钮** | Vue 3 组件 + CSS 动画可实现流畅的环形/侧边栏弹出效果 |
+| **自定义快捷聊天** | Pinia 状态管理 + localStorage 持久化，支持指令的增删改查 |
+| **交互体验** | Tauri 窗口透明 + 点击穿透，鼠标事件处理精确 |
+| **性能平衡** | 相比 Electron 包体积减少 90%，内存减少 60% |
+
+这是功能、性能、交互体验的最佳平衡方案。
