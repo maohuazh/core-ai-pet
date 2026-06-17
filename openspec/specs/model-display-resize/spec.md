@@ -22,13 +22,13 @@ The system SHALL render the Live2D model in a 150×150 pixel square display area
 - **THEN** the renderer SHALL initialize with 150×150 dimensions
 
 ### Requirement: Projection SHALL fit model in square viewport
-The system SHALL adjust the Live2D projection matrix so the model is centered and fits within the 150×150 square viewport without distortion. The model SHALL be scaled to fit the smaller of the two dimensions (width or height).
+The system SHALL adjust the Live2D projection matrix so the full-body model is completely visible within the 150×150 square viewport without clipping. The model height parameter SHALL be tuned to ensure the character's head and feet are both visible.
 
-#### Scenario: Model centered in square viewport
+#### Scenario: Full body visible in viewport
 - **WHEN** the Live2D model is rendered in the 150×150 viewport
-- **THEN** the model SHALL be horizontally and vertically centered
-- **THEN** the model SHALL fit entirely within the viewport (no clipping)
-- **THEN** the model SHALL NOT be stretched or distorted
+- **THEN** the model's full body (head to feet) SHALL be visible
+- **THEN** no part of the model SHALL be clipped at the viewport edges
+- **THEN** the model SHALL be horizontally centered
 
 ### Requirement: Eye tracking SHALL use square coordinate space
 The system SHALL calculate eye tracking coordinates using the 150×150 square display area. The normalized coordinates SHALL range from -1 to 1 on both axes relative to the center of the square.
