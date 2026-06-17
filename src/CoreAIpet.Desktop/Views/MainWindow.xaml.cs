@@ -5,6 +5,7 @@ using System.Windows.Interop;
 using Microsoft.Extensions.DependencyInjection;
 using CoreAIpet.Core.Interfaces;
 using CoreAIpet.Desktop.Behaviors;
+using CoreAIpet.Desktop.Live2D.Rendering;
 using CoreAIpet.Desktop.Services.Live2D;
 
 namespace CoreAIpet.Desktop.Views;
@@ -56,8 +57,8 @@ public partial class MainWindow : Window
 
             var width = (int)Live2DDisplay.ActualWidth;
             var height = (int)Live2DDisplay.ActualHeight;
-            if (width <= 0) width = 200;
-            if (height <= 0) height = 280;
+            if (width <= 0) width = DisplayConstants.DefaultDisplayWidth;
+            if (height <= 0) height = DisplayConstants.DefaultDisplayHeight;
 
             // 初始化渲染器（offscreen，不需要 HWND）
             var success = renderHost.Initialize(Live2DDisplay, width, height);

@@ -94,6 +94,6 @@ public class Live2DHostControl : System.Windows.Controls.UserControl
 
     protected override Size MeasureOverride(Size constraint)
     {
-        return new Size(_width > 0 ? _width : 200, _height > 0 ? _height : 280);
+        return new Size(_width > 0 ? _width : DisplayConstants.DefaultDisplayWidth, _height > 0 ? _height : DisplayConstants.DefaultDisplayHeight);
     }
 }

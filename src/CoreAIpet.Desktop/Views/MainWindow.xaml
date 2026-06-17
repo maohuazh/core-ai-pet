@@ -4,7 +4,7 @@
         xmlns:controls="clr-namespace:CoreAIpet.Desktop.Controls"
         xmlns:rendering="clr-namespace:CoreAIpet.Desktop.Live2D.Rendering"
         Title="CoreAIpet"
-        Width="200" Height="280"
+        Width="150" Height="150"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -16,14 +16,14 @@
     <Grid>
         <!-- Canvas 占位符（Live2D 未加载时显示） -->
         <controls:PetCharacterControl x:Name="CharacterDisplay"
-                                      Width="200"
-                                      Height="280"
+                                      Width="150"
+                                      Height="150"
                                       Visibility="Visible"/>
 
         <!-- Live2D 渲染宿主（Live2D 加载后显示） -->
         <rendering:Live2DHostControl x:Name="Live2DDisplay"
-                                     Width="200"
-                                     Height="280"
+                                     Width="150"
+                                     Height="150"
                                      Visibility="Visible"/>
 
         <!-- 径向菜单 -->

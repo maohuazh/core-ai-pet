@@ -81,8 +81,8 @@ void Bridge_UnloadModel()
 bool Bridge_InitializeRenderer(HWND hwnd, int width, int height)
 {
     // hwnd is ignored — offscreen rendering doesn't need a window
-    if (width <= 0)  width  = 200;
-    if (height <= 0) height = 300;
+    if (width <= 0)  width  = 150;
+    if (height <= 0) height = 150;
 
     if (!Renderer::Initialize(hwnd, width, height)) return false;
 
@@ -140,8 +140,10 @@ void Bridge_Render()
                 auto* modelMatrix = userModel->GetModelMatrix();
                 if (modelMatrix)
                 {
-                    // Ensure model fills vertical space (model coords are ±1 = 2 units)
+                    // Ensure model fills vertical space and is centered (model coords are ±1 = 2 units)
                     modelMatrix->SetHeight(2.0f);
+                    modelMatrix->CenterX(0.0f);
+                    modelMatrix->CenterY(0.0f);
                     projection.MultiplyByMatrix(modelMatrix);
                 }
 
