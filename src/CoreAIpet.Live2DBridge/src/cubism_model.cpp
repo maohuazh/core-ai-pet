@@ -55,6 +55,9 @@ void BridgeLog(const char* msg)
 {
     OutputDebugStringA(msg);
     OutputDebugStringA("\n");
+    // Also write to file for debugging
+    FILE* f = fopen("bridge_log.txt", "a");
+    if (f) { fprintf(f, "%s\n", msg); fclose(f); }
 }
 
 namespace Model {
@@ -257,23 +260,35 @@ bool Load(const char* modelPath)
     // Load .moc3 file
     const csmChar* mocFileName = g_modelSetting->GetModelFileName();
     std::string mocPath = JoinPath(g_modelDir, mocFileName);
+    snprintf(logBuf, sizeof(logBuf), "[Bridge] Loading moc3: %s", mocPath.c_str());
+    BridgeLog(logBuf);
     std::vector<csmByte> mocBuf;
     if (!ReadFile(mocPath, mocBuf))
     {
         BridgeLog("[Bridge] FAILED to load .moc3 file");
         return false;
     }
+    snprintf(logBuf, sizeof(logBuf), "[Bridge] moc3 size: %u bytes", (unsigned)mocBuf.size());
+    BridgeLog(logBuf);
     g_userModel->LoadModel(mocBuf.data(), (csmSizeInt)mocBuf.size());
+    BridgeLog("[Bridge] LoadModel done");
 
     // Load physics
     const csmChar* physicsFile = g_modelSetting->GetPhysicsFileName();
     if (physicsFile && physicsFile[0])
     {
         std::string physicsPath = JoinPath(g_modelDir, physicsFile);
+        snprintf(logBuf, sizeof(logBuf), "[Bridge] Loading physics: %s", physicsPath.c_str());
+        BridgeLog(logBuf);
         std::vector<csmByte> physBuf;
         if (ReadFile(physicsPath, physBuf))
         {
             g_userModel->LoadPhysics(physBuf.data(), (csmSizeInt)physBuf.size());
+            BridgeLog("[Bridge] LoadPhysics done");
+        }
+        else
+        {
+            BridgeLog("[Bridge] LoadPhysics FAILED (continuing)");
         }
     }
 
@@ -345,8 +360,15 @@ bool Load(const char* modelPath)
             if (!motionFile) continue;
 
             std::string motionPath = JoinPath(g_modelDir, motionFile);
+            snprintf(logBuf, sizeof(logBuf), "[Bridge]   loading motion [%d/%d]: %s", j+1, count, motionFile);
+            BridgeLog(logBuf);
+
             std::vector<csmByte> motionBuf;
-            if (!ReadFile(motionPath, motionBuf)) continue;
+            if (!ReadFile(motionPath, motionBuf)) {
+                snprintf(logBuf, sizeof(logBuf), "[Bridge]   FAILED to read motion file: %s", motionPath.c_str());
+                BridgeLog(logBuf);
+                continue;
+            }
 
             ACubismMotion* motion = g_userModel->LoadMotion(
                 motionBuf.data(), (csmSizeInt)motionBuf.size(),
@@ -363,6 +385,11 @@ bool Load(const char* modelPath)
                 std::transform(groupLower.begin(), groupLower.end(), groupLower.begin(),
                     [](unsigned char c) { return (char)std::tolower(c); });
                 g_motionIndex[groupLower].push_back(motionIdx);
+            }
+            else
+            {
+                snprintf(logBuf, sizeof(logBuf), "[Bridge]   LoadMotion returned NULL for: %s", motionFile);
+                BridgeLog(logBuf);
             }
         }
     }

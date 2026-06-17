@@ -206,8 +206,8 @@ public class DebugSettings
 public class Live2DSettings
 {
     [JsonPropertyName("modelPath")]
-    public string ModelPath { get; set; } = @"C:\Change Top\git\murphy\core-ai-pet\src\CoreAIpet.Live2DBridge\vendor\models\Hiyori";
+    public string ModelPath { get; set; } = @"C:\Change Top\git\open-source\live2d\live2d_3\model\Azue Lane(JP)\biaoqiang";
 
     [JsonPropertyName("modelVariant")]
-    public string ModelVariant { get; set; } = "Hiyori.model3.json";
+    public string ModelVariant { get; set; } = "biaoqiang.model3.json";
 }
