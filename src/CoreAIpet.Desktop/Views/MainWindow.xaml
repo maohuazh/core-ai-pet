@@ -46,7 +46,7 @@
                 <rendering:Live2DHostControl x:Name="Live2DDisplay"
                                              Width="200"
                                              Height="280"
-                                             Visibility="Collapsed"/>
+                                             Visibility="Visible"/>
             </Grid>
 
             <!-- 底部信息 -->

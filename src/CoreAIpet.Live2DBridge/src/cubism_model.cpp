@@ -127,7 +127,7 @@ static ID3D11ShaderResourceView* LoadTexture(const std::string& path)
 }
 
 // ============================================================
-// File logging helper
+// Logging helper
 // ============================================================
 static void BridgeLog(const char* msg)
 {

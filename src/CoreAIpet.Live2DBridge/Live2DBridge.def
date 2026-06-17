@@ -11,3 +11,6 @@ EXPORTS
     Bridge_SetParameter
     Bridge_SetEyeTarget
     Bridge_GetFPS
+    Bridge_ReadPixels
+    Bridge_UnlockPixels
+    Bridge_GetPixelStride

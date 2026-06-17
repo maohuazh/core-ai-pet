@@ -47,4 +47,13 @@ public static class Live2DBridgeNative
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     public static extern float Bridge_GetFPS();
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr Bridge_ReadPixels();
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void Bridge_UnlockPixels();
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern int Bridge_GetPixelStride();
 }

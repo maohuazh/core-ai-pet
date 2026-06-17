@@ -9,6 +9,7 @@ public class Live2DRenderHost : IDisposable
 {
     private readonly Live2DBridgeWrapper _bridge;
     private readonly FrameTimer _frameTimer;
+    private Live2DHostControl? _display;
     private bool _disposed;
 
     public float FPS => _bridge.FPS;
@@ -17,13 +18,22 @@ public class Live2DRenderHost : IDisposable
     {
         _bridge = bridge;
         _frameTimer = new FrameTimer();
-        _frameTimer.Tick += () => _bridge.Render();
+        _frameTimer.Tick += OnFrameTick;
     }
 
-    public bool Initialize(IntPtr hwnd, int width, int height)
+    private void OnFrameTick()
     {
+        _bridge.Render();
+        _display?.UpdateFromRenderer();
+    }
+
+    public bool Initialize(Live2DHostControl display, int width, int height)
+    {
+        _display = display;
         if (!_bridge.Initialize()) return false;
-        if (!_bridge.InitializeRenderer(hwnd, width, height)) return false;
+        // Initialize renderer without HWND (offscreen rendering)
+        if (!_bridge.InitializeRenderer(IntPtr.Zero, width, height)) return false;
+        display.Initialize(_bridge, width, height);
         return true;
     }
 

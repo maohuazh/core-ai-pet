@@ -80,7 +80,7 @@ void Bridge_UnloadModel()
 
 bool Bridge_InitializeRenderer(HWND hwnd, int width, int height)
 {
-    if (!hwnd) return false;
+    // hwnd is ignored — offscreen rendering doesn't need a window
     if (width <= 0)  width  = 200;
     if (height <= 0) height = 300;
 
@@ -206,4 +206,26 @@ void Bridge_SetEyeTarget(float x, float y)
 float Bridge_GetFPS()
 {
     return FpsCounter::Value();
+}
+
+// ============================================================
+// Pixel readback (for WPF WriteableBitmap display)
+// ============================================================
+
+extern "C" __declspec(dllexport)
+const void* Bridge_ReadPixels()
+{
+    return Renderer::ReadPixels();
+}
+
+extern "C" __declspec(dllexport)
+void Bridge_UnlockPixels()
+{
+    Renderer::UnlockPixels();
+}
+
+extern "C" __declspec(dllexport)
+int Bridge_GetPixelStride()
+{
+    return Renderer::GetPixelStride();
 }

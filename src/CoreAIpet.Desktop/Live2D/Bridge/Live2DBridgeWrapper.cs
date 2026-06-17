@@ -138,6 +138,26 @@ public class Live2DBridgeWrapper : IDisposable
         }
     }
 
+    /// <summary>Read rendered pixels. Returns (pointer, stride). Caller must call UnlockPixels() after copying.</summary>
+    public (IntPtr pointer, int stride) ReadPixels()
+    {
+        lock (_lock)
+        {
+            if (!_initialized || !_modelLoaded) return (IntPtr.Zero, 0);
+            var ptr = Live2DBridgeNative.Bridge_ReadPixels();
+            var stride = Live2DBridgeNative.Bridge_GetPixelStride();
+            return (ptr, stride);
+        }
+    }
+
+    public void UnlockPixels()
+    {
+        lock (_lock)
+        {
+            Live2DBridgeNative.Bridge_UnlockPixels();
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

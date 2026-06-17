@@ -1,37 +1,60 @@
 // ============================================================
-// cubism_renderer.cpp — D3D11 device, swap chain, render target
+// cubism_renderer.cpp — D3D11 offscreen rendering + pixel readback
+// ============================================================
+// Instead of rendering to a swap chain (which requires a visible HWND),
+// we render to an offscreen texture, then copy pixels to a staging
+// texture for CPU readback. C# WPF displays pixels via WriteableBitmap.
+// This is needed because WPF AllowsTransparency + HwndHost is broken.
 // ============================================================
 
 #include "bridge_internal.h"
 #include <d3d11.h>
 #include <dxgi.h>
+#include <cstring>
 
 namespace Renderer {
 
-static HWND              g_hwnd       = nullptr;
 static int               g_width      = 0;
 static int               g_height     = 0;
 
 static ID3D11Device*           g_device       = nullptr;
 static ID3D11DeviceContext*    g_context      = nullptr;
-static IDXGISwapChain*         g_swapChain    = nullptr;
+static ID3D11Texture2D*        g_renderTex    = nullptr;
 static ID3D11RenderTargetView* g_rtv          = nullptr;
 static ID3D11Texture2D*        g_depthTex     = nullptr;
 static ID3D11DepthStencilView* g_dsv          = nullptr;
 static ID3D11DepthStencilState* g_depthState  = nullptr;
 static ID3D11BlendState*        g_blendState  = nullptr;
+static ID3D11Texture2D*        g_stagingTex   = nullptr;
 
-static bool CreateRenderTarget()
+static void ReleaseAll()
 {
-    if (!g_swapChain || !g_device) return false;
+    if (g_dsv)        { g_dsv->Release();        g_dsv = nullptr; }
+    if (g_depthTex)   { g_depthTex->Release();   g_depthTex = nullptr; }
+    if (g_rtv)        { g_rtv->Release();        g_rtv = nullptr; }
+    if (g_renderTex)  { g_renderTex->Release();  g_renderTex = nullptr; }
+    if (g_stagingTex) { g_stagingTex->Release(); g_stagingTex = nullptr; }
+}
 
+static bool CreateTextures()
+{
+    if (!g_device || g_width <= 0 || g_height <= 0) return false;
     HRESULT hr;
-    ID3D11Texture2D* backBuffer = nullptr;
-    hr = g_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
+
+    // Render target texture (RGBA8, renderable)
+    D3D11_TEXTURE2D_DESC rtDesc = {};
+    rtDesc.Width = g_width;
+    rtDesc.Height = g_height;
+    rtDesc.MipLevels = 1;
+    rtDesc.ArraySize = 1;
+    rtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    rtDesc.SampleDesc.Count = 1;
+    rtDesc.Usage = D3D11_USAGE_DEFAULT;
+    rtDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    hr = g_device->CreateTexture2D(&rtDesc, nullptr, &g_renderTex);
     if (FAILED(hr)) return false;
 
-    hr = g_device->CreateRenderTargetView(backBuffer, nullptr, &g_rtv);
-    backBuffer->Release();
+    hr = g_device->CreateRenderTargetView(g_renderTex, nullptr, &g_rtv);
     if (FAILED(hr)) return false;
 
     // Depth stencil texture
@@ -53,88 +76,52 @@ static bool CreateRenderTarget()
     hr = g_device->CreateDepthStencilView(g_depthTex, &dsvDesc, &g_dsv);
     if (FAILED(hr)) return false;
 
+    // Staging texture for CPU readback
+    D3D11_TEXTURE2D_DESC stagingDesc = {};
+    stagingDesc.Width = g_width;
+    stagingDesc.Height = g_height;
+    stagingDesc.MipLevels = 1;
+    stagingDesc.ArraySize = 1;
+    stagingDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    stagingDesc.SampleDesc.Count = 1;
+    stagingDesc.Usage = D3D11_USAGE_STAGING;
+    stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    hr = g_device->CreateTexture2D(&stagingDesc, nullptr, &g_stagingTex);
+    if (FAILED(hr)) return false;
+
     return true;
 }
 
-static void ReleaseRenderTarget()
+bool Initialize(HWND /*hwnd*/, int width, int height)
 {
-    if (g_dsv)      { g_dsv->Release();      g_dsv = nullptr; }
-    if (g_depthTex)  { g_depthTex->Release();  g_depthTex = nullptr; }
-    if (g_rtv)      { g_rtv->Release();      g_rtv = nullptr; }
-}
-
-bool Initialize(HWND hwnd, int width, int height)
-{
-    if (!hwnd || width <= 0 || height <= 0) return false;
-    g_hwnd = hwnd;
+    if (width <= 0 || height <= 0) return false;
     g_width = width;
     g_height = height;
 
     HRESULT hr;
 
-    // Swap chain description
-    DXGI_SWAP_CHAIN_DESC scDesc = {};
-    scDesc.BufferCount = 2;
-    scDesc.BufferDesc.Width = width;
-    scDesc.BufferDesc.Height = height;
-    scDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    scDesc.BufferDesc.RefreshRate.Numerator = 60;
-    scDesc.BufferDesc.RefreshRate.Denominator = 1;
-    scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    scDesc.SampleDesc.Count = 1;
-    scDesc.SampleDesc.Quality = 0;
-    scDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-    scDesc.OutputWindow = hwnd;
-    scDesc.Windowed = TRUE;
-    scDesc.Flags = 0;
-
+    // Create D3D11 device (no swap chain)
     D3D_FEATURE_LEVEL featureLevel;
     D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_11_0 };
 
-    UINT createFlags = 0;
-#ifdef _DEBUG
-    createFlags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
-
-    hr = D3D11CreateDeviceAndSwapChain(
+    hr = D3D11CreateDevice(
         nullptr,
         D3D_DRIVER_TYPE_HARDWARE,
         nullptr,
-        createFlags,
+        0,
         featureLevels,
         1,
         D3D11_SDK_VERSION,
-        &scDesc,
-        &g_swapChain,
         &g_device,
         &featureLevel,
         &g_context
     );
+    if (FAILED(hr)) return false;
 
-    if (FAILED(hr))
-    {
-        // Retry without debug flag
-        hr = D3D11CreateDeviceAndSwapChain(
-            nullptr,
-            D3D_DRIVER_TYPE_HARDWARE,
-            nullptr,
-            0,
-            featureLevels,
-            1,
-            D3D11_SDK_VERSION,
-            &scDesc,
-            &g_swapChain,
-            &g_device,
-            &featureLevel,
-            &g_context
-        );
-        if (FAILED(hr)) return false;
-    }
+    // Create render target + depth + staging textures
+    if (!CreateTextures()) return false;
 
-    // Create render target + depth stencil
-    if (!CreateRenderTarget()) return false;
-
-    // Depth stencil state (depth disabled — we use painter's algorithm)
+    // Depth stencil state (depth disabled)
     D3D11_DEPTH_STENCIL_DESC depthDescState = {};
     depthDescState.DepthEnable = FALSE;
     depthDescState.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
@@ -143,7 +130,7 @@ bool Initialize(HWND hwnd, int width, int height)
     hr = g_device->CreateDepthStencilState(&depthDescState, &g_depthState);
     if (FAILED(hr)) return false;
 
-    // Alpha blend state for transparent background
+    // Alpha blend state
     D3D11_BLEND_DESC blendDesc = {};
     blendDesc.AlphaToCoverageEnable = FALSE;
     blendDesc.IndependentBlendEnable = FALSE;
@@ -163,13 +150,11 @@ bool Initialize(HWND hwnd, int width, int height)
 
 void Shutdown()
 {
-    ReleaseRenderTarget();
+    ReleaseAll();
     if (g_blendState)  { g_blendState->Release();  g_blendState = nullptr; }
-    if (g_depthState) { g_depthState->Release(); g_depthState = nullptr; }
-    if (g_swapChain)  { g_swapChain->Release();  g_swapChain = nullptr; }
-    if (g_context)    { g_context->Release();     g_context = nullptr; }
-    if (g_device)     { g_device->Release();      g_device = nullptr; }
-    g_hwnd = nullptr;
+    if (g_depthState)  { g_depthState->Release();  g_depthState = nullptr; }
+    if (g_context)     { g_context->Release();     g_context = nullptr; }
+    if (g_device)      { g_device->Release();      g_device = nullptr; }
 }
 
 void Resize(int width, int height)
@@ -179,18 +164,8 @@ void Resize(int width, int height)
     g_width = width;
     g_height = height;
 
-    if (!g_swapChain) return;
-
-    ReleaseRenderTarget();
-
-    HRESULT hr = g_swapChain->ResizeBuffers(
-        2, width, height,
-        DXGI_FORMAT_R8G8B8A8_UNORM, 0
-    );
-    if (SUCCEEDED(hr))
-    {
-        CreateRenderTarget();
-    }
+    ReleaseAll();
+    CreateTextures();
 }
 
 void BeginFrame()
@@ -251,17 +226,50 @@ void EndFrame()
         }
     }
 #endif
+    // No swap chain present — pixels are read via ReadPixels()
+}
 
-    if (g_swapChain)
+/// Copy render target to staging texture and return pointer to pixel data.
+/// Returns nullptr if readback fails. Caller must call UnlockPixels() when done.
+static D3D11_MAPPED_SUBRESOURCE g_mapped = {};
+static bool g_mappedValid = false;
+
+const void* ReadPixels()
+{
+    if (!g_context || !g_renderTex || !g_stagingTex) return nullptr;
+
+    // Copy render target to staging
+    g_context->CopyResource(g_stagingTex, g_renderTex);
+
+    // Map staging texture for reading
+    HRESULT hr = g_context->Map(g_stagingTex, 0, D3D11_MAP_READ, 0, &g_mapped);
+    if (FAILED(hr))
     {
-        g_swapChain->Present(1, 0);
+        g_mappedValid = false;
+        return nullptr;
     }
+    g_mappedValid = true;
+    return g_mapped.pData;
+}
+
+void UnlockPixels()
+{
+    if (g_mappedValid && g_stagingTex)
+    {
+        g_context->Unmap(g_stagingTex, 0);
+        g_mappedValid = false;
+    }
+}
+
+int GetPixelStride()
+{
+    return g_mapped.RowPitch;
 }
 
 ID3D11Device* GetDevice() { return g_device; }
 ID3D11DeviceContext* GetDeviceContext() { return g_context; }
 int GetWidth() { return g_width; }
 int GetHeight() { return g_height; }
-HWND GetHwnd() { return g_hwnd; }
+HWND GetHwnd() { return nullptr; }
 
 } // namespace Renderer

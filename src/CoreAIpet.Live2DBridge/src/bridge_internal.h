@@ -80,6 +80,12 @@ ID3D11Device* GetDevice();
 ID3D11DeviceContext* GetDeviceContext();
 #endif
 
+/// Copy render target to staging texture and return pointer to pixel data.
+/// Caller must call UnlockPixels() when done copying.
+const void* ReadPixels();
+void UnlockPixels();
+int GetPixelStride(); // row pitch in bytes
+
 int GetWidth();
 int GetHeight();
 HWND GetHwnd();
