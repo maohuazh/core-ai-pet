@@ -1,6 +1,5 @@
 using System.IO;
 using System.Windows;
-using System.Windows.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -46,6 +45,9 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        // 确保工作目录为程序集所在目录（Live2D 着色器从相对路径加载）
+        Environment.CurrentDirectory = AppContext.BaseDirectory;
+
         var crashPath = Path.Combine(AppContext.BaseDirectory, "crash.log");
         try
         {
