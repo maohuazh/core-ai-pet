@@ -140,8 +140,8 @@ void Bridge_Render()
                 auto* modelMatrix = userModel->GetModelMatrix();
                 if (modelMatrix)
                 {
-                    // Ensure model fills vertical space and is centered (model coords are ±1 = 2 units)
-                    modelMatrix->SetHeight(2.0f);
+                    // Show full body — use smaller height to fit tall model in square viewport
+                    modelMatrix->SetHeight(1.0f);
                     modelMatrix->CenterX(0.0f);
                     modelMatrix->CenterY(0.0f);
                     projection.MultiplyByMatrix(modelMatrix);

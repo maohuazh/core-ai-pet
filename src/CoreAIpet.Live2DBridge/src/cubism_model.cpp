@@ -26,6 +26,8 @@
 #include <d3d11.h>
 #include <fstream>
 #include <vector>
+#include <map>
+#include <algorithm>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -46,12 +48,22 @@ public:
     CubismPose*          GetPose()           { return _pose; }
 };
 
+// ============================================================
+// Logging helper (global, not in namespace)
+// ============================================================
+void BridgeLog(const char* msg)
+{
+    OutputDebugStringA(msg);
+    OutputDebugStringA("\n");
+}
+
 namespace Model {
 
 static std::mutex g_mutex;
 static BridgeUserModel* g_userModel = nullptr;
 static CubismModelSettingJson* g_modelSetting = nullptr;
 static csmVector<ACubismMotion*> g_motions;
+static std::map<std::string, std::vector<int>> g_motionIndex; // group name (lowercase) -> motion indices
 static std::string g_modelDir;
 static bool g_frameworkStarted = false;
 
@@ -124,15 +136,6 @@ static ID3D11ShaderResourceView* LoadTexture(const std::string& path)
     if (FAILED(hr)) return nullptr;
 
     return srv;
-}
-
-// ============================================================
-// Logging helper
-// ============================================================
-static void BridgeLog(const char* msg)
-{
-    OutputDebugStringA(msg);
-    OutputDebugStringA("\n");
 }
 
 // ============================================================
@@ -237,8 +240,7 @@ bool Load(const char* modelPath)
     }
     for (csmUint32 i = 0; i < g_motions.GetSize(); i++) { ACubismMotion::Delete(g_motions[i]); }
     g_motions.Clear();
-
-    // Determine model directory
+    g_motionIndex.clear();
     std::string fullPath(modelPath);
     auto lastSlash = fullPath.find_last_of("/\\");
     g_modelDir = (lastSlash != std::string::npos) ? fullPath.substr(0, lastSlash) : ".";
@@ -353,7 +355,14 @@ bool Load(const char* modelPath)
             );
             if (motion)
             {
+                int motionIdx = (int)g_motions.GetSize();
                 g_motions.PushBack(motion);
+
+                // Build motion group index (lowercase group name)
+                std::string groupLower(groupName);
+                std::transform(groupLower.begin(), groupLower.end(), groupLower.begin(),
+                    [](unsigned char c) { return (char)std::tolower(c); });
+                g_motionIndex[groupLower].push_back(motionIdx);
             }
         }
     }
@@ -456,6 +465,7 @@ void Unload()
 {
     for (csmUint32 i = 0; i < g_motions.GetSize(); i++) { ACubismMotion::Delete(g_motions[i]); }
     g_motions.Clear();
+    g_motionIndex.clear();
 
     if (g_userModel)
     {
@@ -547,9 +557,33 @@ bool GetLayout(float& centerX, float& centerY, float& width, float& height)
     return true;
 }
 
+const std::map<std::string, std::vector<int>>& GetMotionIndex()
+{
+    return g_motionIndex;
+}
+
+ACubismMotion* GetMotion(int index)
+{
+    if (index < 0 || index >= (int)g_motions.GetSize()) return nullptr;
+    return g_motions[index];
+}
+
+int GetMotionCount()
+{
+    return (int)g_motions.GetSize();
+}
+
+CubismMotionManager* GetMotionManager()
+{
+    if (!g_userModel) return nullptr;
+    return g_userModel->GetMotionManager();
+}
+
 } // namespace Model
 
 #else // !LIVE2D_HAS_SDK — mock mode stubs
+
+void BridgeLog(const char*) {} // No-op in mock mode
 
 namespace Model {
 
@@ -564,6 +598,8 @@ bool IsLoaded() { return g_loaded; }
 void Update(float) {}
 void SetParameter(const char* p, float v) { if (p) g_params[p] = v; }
 bool GetLayout(float&, float&, float&, float&) { return false; }
+static const std::map<std::string, std::vector<int>> g_emptyIndex;
+const std::map<std::string, std::vector<int>>& GetMotionIndex() { return g_emptyIndex; }
 
 } // namespace Model
 

@@ -3,6 +3,8 @@
 
 #include <windows.h>
 #include <string>
+#include <vector>
+#include <map>
 #include <unordered_map>
 #include <mutex>
 
@@ -33,6 +35,9 @@ namespace CsmAllocator {
 }
 #endif
 
+/// Logging helper — outputs to Windows DebugView
+void BridgeLog(const char* msg);
+
 // ============================================================
 // cubism_model.cpp — Model loading & per-frame update
 // ============================================================
@@ -57,6 +62,16 @@ Live2D::Cubism::Framework::CubismUserModel* GetUserModel();
 #endif
 
 bool GetLayout(float& centerX, float& centerY, float& width, float& height);
+
+/// Get motion group index (group name lowercase -> motion indices in global array)
+const std::map<std::string, std::vector<int>>& GetMotionIndex();
+
+/// Get a specific motion by index (from the global motions array)
+#ifdef LIVE2D_HAS_SDK
+Live2D::Cubism::Framework::ACubismMotion* GetMotion(int index);
+int GetMotionCount();
+Live2D::Cubism::Framework::CubismMotionManager* GetMotionManager();
+#endif
 
 } // namespace Model
 
