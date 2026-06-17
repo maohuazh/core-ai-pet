@@ -4,7 +4,7 @@
         xmlns:controls="clr-namespace:CoreAIpet.Desktop.Controls"
         xmlns:rendering="clr-namespace:CoreAIpet.Desktop.Live2D.Rendering"
         Title="CoreAIpet"
-        Width="280" Height="400"
+        Width="200" Height="280"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -13,66 +13,24 @@
         ResizeMode="NoResize"
         WindowStartupLocation="Manual">
 
-    <!-- 外边距作为透明区域 -->
-    <Grid Margin="10">
-        <!-- 卡片背景 + 阴影 -->
-        <Border Background="#FF2B3A6B"
-                CornerRadius="16"
-                BorderBrush="#80FFFFFF"
-                BorderThickness="1">
-            <Border.Effect>
-                <DropShadowEffect ShadowDepth="0" BlurRadius="12" Opacity="0.6" Color="Black"/>
-            </Border.Effect>
-        </Border>
+    <Grid>
+        <!-- Canvas 占位符（Live2D 未加载时显示） -->
+        <controls:PetCharacterControl x:Name="CharacterDisplay"
+                                      Width="200"
+                                      Height="280"
+                                      Visibility="Visible"/>
 
-        <!-- 内容 -->
-        <Grid Margin="10">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+        <!-- Live2D 渲染宿主（Live2D 加载后显示） -->
+        <rendering:Live2DHostControl x:Name="Live2DDisplay"
+                                     Width="200"
+                                     Height="280"
+                                     Visibility="Visible"/>
 
-            <!-- 角色区域：Canvas 占位符 + Live2D 渲染 -->
-            <Grid Grid.Row="0"
-                  HorizontalAlignment="Center"
-                  VerticalAlignment="Center">
-                <!-- Canvas 占位符（Live2D 未加载时显示） -->
-                <controls:PetCharacterControl x:Name="CharacterDisplay"
-                                              Width="200"
-                                              Height="280"
-                                              Visibility="Visible"/>
-
-                <!-- Live2D 渲染宿主（Live2D 加载后显示） -->
-                <rendering:Live2DHostControl x:Name="Live2DDisplay"
-                                             Width="200"
-                                             Height="280"
-                                             Visibility="Visible"/>
-            </Grid>
-
-            <!-- 底部信息 -->
-            <StackPanel Grid.Row="1"
-                        VerticalAlignment="Bottom"
-                        HorizontalAlignment="Center"
-                        Margin="0,8,0,0">
-                <TextBlock Text="CoreAIpet"
-                           FontSize="18" FontWeight="Bold"
-                           Foreground="White"
-                           HorizontalAlignment="Center"
-                           FontFamily="Microsoft YaHei UI"/>
-                <TextBlock Text="鼠标移动 → 眼球跟随"
-                           FontSize="11"
-                           Foreground="#A0FFFFFF"
-                           HorizontalAlignment="Center"
-                           Margin="0,4,0,0"
-                           FontFamily="Microsoft YaHei UI"/>
-            </StackPanel>
-
-            <!-- 径向菜单 -->
-            <controls:RadialMenuControl x:Name="RadialMenu"
-                Width="100" Height="100"
-                Visibility="Collapsed"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center" />
-        </Grid>
+        <!-- 径向菜单 -->
+        <controls:RadialMenuControl x:Name="RadialMenu"
+            Width="100" Height="100"
+            Visibility="Collapsed"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center" />
     </Grid>
 </Window>
