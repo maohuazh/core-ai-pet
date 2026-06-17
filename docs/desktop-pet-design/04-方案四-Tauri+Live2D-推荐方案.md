@@ -96,233 +96,667 @@
 
 ## 文件结构设计
 
+> **设计原则**：分层架构 + 领域驱动 + 插件化扩展
+> - **后端**：Commands → Services → Core → Infrastructure 四层分离
+> - **前端**：Views → Components → Modules → Core 模块化设计
+> - **插件化**：AI 提供商、渲染器、行为触发器均支持插件扩展
+
 ```
-tauri-live2d-pet/
+desktop-pet/
 │
-├── package.json                    # 前端依赖
-├── Cargo.toml                      # Rust 工作区
-├── vite.config.ts                  # Vite 配置
-├── tsconfig.json                   # TypeScript 配置
-├── uno.config.ts                   # UnoCSS 配置
-├── .env.example                    # 环境变量
-├── README.md                       # 项目说明
-├── LICENSE                         # 许可证
+├── package.json                         # 前端依赖
+├── pnpm-workspace.yaml                  # Monorepo 配置（可选）
+├── Cargo.toml                           # Rust 工作区
+├── vite.config.ts                       # Vite 配置
+├── tsconfig.json                        # TypeScript 配置
+├── uno.config.ts                        # UnoCSS 配置
+├── playwright.config.ts                 # E2E 测试配置
+├── .env.example                         # 环境变量模板
+├── .eslintrc.cjs                        # ESLint 配置
+├── .prettierrc                          # Prettier 配置
+├── README.md                            # 项目说明
+├── LICENSE                              # 许可证
 │
-├── src-tauri/                      # ===== Rust 后端 =====
-│   ├── Cargo.toml                  # Rust 依赖
-│   ├── build.rs                    # 构建脚本
+├── src-tauri/                           # ========== RUST 后端 ==========
+│   ├── Cargo.toml                       # Rust 依赖
+│   ├── build.rs                         # 构建脚本
 │   │
 │   ├── src/
-│   │   ├── main.rs                 # 入口
-│   │   ├── lib.rs                  # 库入口
+│   │   ├── main.rs                      # 应用入口
+│   │   ├── lib.rs                       # 库入口 & 模块注册
 │   │   │
-│   │   ├── commands/               # Tauri 命令
-│   │   │   ├── mod.rs
-│   │   │   ├── pet.rs              # 宠物控制
-│   │   │   ├── chat.rs             # 聊天
-│   │   │   ├── settings.rs         # 设置
-│   │   │   ├── window.rs           # 窗口
-│   │   │   └── system.rs           # 系统
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   │ # LAYER 1: Commands（命令层）- Tauri IPC 接口
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   ├── commands/                    # Tauri 命令（薄控制器层）
+│   │   │   ├── mod.rs                   # 命令注册
+│   │   │   ├── pet.rs                   # 宠物控制命令
+│   │   │   ├── chat.rs                  # 聊天命令
+│   │   │   ├── settings.rs              # 设置命令
+│   │   │   ├── window.rs                # 窗口命令
+│   │   │   ├── plugin.rs                # 插件管理命令
+│   │   │   └── debug.rs                 # 调试命令
 │   │   │
-│   │   ├── services/               # 核心服务
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   │ # LAYER 2: Services（服务层）- 业务逻辑编排
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   ├── services/                    # 业务服务（用例实现）
 │   │   │   ├── mod.rs
-│   │   │   ├── window_manager.rs   # 窗口管理
-│   │   │   ├── config_manager.rs   # 配置管理
-│   │   │   ├── tray_manager.rs     # 系统托盘
-│   │   │   ├── shortcut_manager.rs # 全局快捷键
-│   │   │   ├── auto_launch.rs      # 开机自启
-│   │   │   ├── screen_capture.rs   # 屏幕截图
-│   │   │   └── updater.rs          # 自动更新
-│   │   │
-│   │   ├── ai/                     # AI 服务
-│   │   │   ├── mod.rs
-│   │   │   ├── provider.rs         # 提供商 trait
-│   │   │   ├── openai.rs           # OpenAI
-│   │   │   ├── claude.rs           # Claude
-│   │   │   ├── gemini.rs           # Gemini
-│   │   │   ├── ollama.rs           # Ollama (本地)
-│   │   │   ├── chat_service.rs     # 聊天服务
-│   │   │   ├── streaming.rs        # 流式响应
-│   │   │   └── tool_use.rs         # 工具调用
-│   │   │
-│   │   ├── mcp/                    # MCP 集成
-│   │   │   ├── mod.rs
-│   │   │   ├── client.rs           # MCP 客户端
-│   │   │   ├── transport.rs        # stdio 传输
-│   │   │   ├── registry.rs         # 工具注册
-│   │   │   └── executor.rs         # 执行器
-│   │   │
-│   │   ├── tts/                    # 语音合成
-│   │   │   ├── mod.rs
-│   │   │   ├── service.rs          # TTS 服务
-│   │   │   ├── edge_tts.rs         # Edge TTS
-│   │   │   └── lip_sync.rs         # 口型同步
-│   │   │
-│   │   ├── db/                     # 数据库
-│   │   │   ├── mod.rs
-│   │   │   ├── manager.rs          # 数据库管理器
-│   │   │   ├── migrations.rs       # 迁移
-│   │   │   ├── models/             # 数据模型
+│   │   │   │
+│   │   │   ├── pet/                     # 宠物服务域
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── chat_message.rs
-│   │   │   │   ├── pet_state.rs
-│   │   │   │   ├── user_prefs.rs
-│   │   │   │   └── memory.rs
-│   │   │   └── queries/            # 查询
+│   │   │   │   ├── pet_service.rs       # 宠物管理服务
+│   │   │   │   ├── behavior_service.rs  # 行为调度服务
+│   │   │   │   └── interaction_service.rs # 交互处理服务
+│   │   │   │
+│   │   │   ├── chat/                    # 聊天服务域
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── chat_service.rs      # 聊天管理服务
+│   │   │   │   ├── message_service.rs   # 消息处理服务
+│   │   │   │   ├── history_service.rs   # 历史记录服务
+│   │   │   │   └── command_service.rs   # 快捷指令服务
+│   │   │   │
+│   │   │   ├── ai/                      # AI 服务域
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── ai_service.rs        # AI 编排服务
+│   │   │   │   ├── provider_manager.rs  # 提供商管理
+│   │   │   │   ├── context_builder.rs   # 上下文构建
+│   │   │   │   └── response_handler.rs  # 响应处理
+│   │   │   │
+│   │   │   ├── window/                  # 窗口服务域
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── window_service.rs    # 窗口管理服务
+│   │   │   │   ├── tray_service.rs      # 系统托盘服务
+│   │   │   │   └── shortcut_service.rs  # 快捷键服务
+│   │   │   │
+│   │   │   └── system/                  # 系统服务域
 │   │   │       ├── mod.rs
-│   │   │       ├── chat.rs
-│   │   │       └── pet.rs
+│   │   │       ├── config_service.rs    # 配置管理服务
+│   │   │       ├── storage_service.rs   # 存储服务
+│   │   │       ├── update_service.rs    # 更新服务
+│   │   │       └── autostart_service.rs # 开机自启服务
 │   │   │
-│   │   ├── events/                 # 事件系统
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   │ # LAYER 3: Core（核心层）- 领域模型 & 业务规则
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   ├── core/                        # 核心领域逻辑
 │   │   │   ├── mod.rs
-│   │   │   ├── types.rs            # 事件类型
-│   │   │   └── handler.rs          # 事件处理器
+│   │   │   │
+│   │   │   ├── domain/                  # 领域模型
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── pet/                 # 宠物领域
+│   │   │   │   │   ├── mod.rs
+│   │   │   │   │   ├── entity.rs        # 宠物实体
+│   │   │   │   │   ├── state.rs         # 宠物状态
+│   │   │   │   │   ├── behavior.rs      # 行为定义
+│   │   │   │   │   └── mood.rs          # 情绪系统
+│   │   │   │   │
+│   │   │   │   ├── chat/                # 聊天领域
+│   │   │   │   │   ├── mod.rs
+│   │   │   │   │   ├── message.rs       # 消息实体
+│   │   │   │   │   ├── conversation.rs  # 会话实体
+│   │   │   │   │   ├── command.rs       # 快捷指令
+│   │   │   │   │   └── template.rs      # 消息模板
+│   │   │   │   │
+│   │   │   │   └── ai/                  # AI 领域
+│   │   │   │       ├── mod.rs
+│   │   │   │       ├── provider.rs      # 提供商抽象
+│   │   │   │       ├── model.rs         # 模型定义
+│   │   │   │       ├── token.rs         # Token 计算
+│   │   │   │       └── tool.rs          # 工具定义
+│   │   │   │
+│   │   │   ├── behavior/                # 行为引擎
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── state_machine.rs     # 状态机核心
+│   │   │   │   ├── transition.rs        # 转换规则
+│   │   │   │   ├── trigger.rs           # 触发器抽象
+│   │   │   │   └── scheduler.rs         # 行为调度器
+│   │   │   │
+│   │   │   └── event/                   # 事件系统
+│   │   │       ├── mod.rs
+│   │   │       ├── bus.rs               # 事件总线
+│   │   │       ├── types.rs             # 事件类型定义
+│   │   │       └── handler.rs           # 事件处理器 trait
 │   │   │
-│   │   ├── models/                 # 共享模型
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   │ # LAYER 4: Infrastructure（基础设施层）- 外部依赖实现
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   ├── infrastructure/              # 基础设施实现
 │   │   │   ├── mod.rs
-│   │   │   ├── pet.rs              # 宠物模型
-│   │   │   ├── chat.rs             # 聊天模型
-│   │   │   ├── config.rs           # 配置模型
-│   │   │   └── error.rs            # 错误模型
+│   │   │   │
+│   │   │   ├── ai/                      # AI 提供商实现
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── openai/              # OpenAI 实现
+│   │   │   │   │   ├── mod.rs
+│   │   │   │   │   ├── client.rs
+│   │   │   │   │   ├── models.rs
+│   │   │   │   │   └── streaming.rs
+│   │   │   │   │
+│   │   │   │   ├── claude/              # Claude 实现
+│   │   │   │   │   ├── mod.rs
+│   │   │   │   │   ├── client.rs
+│   │   │   │   │   └── models.rs
+│   │   │   │   │
+│   │   │   │   ├── gemini/              # Gemini 实现
+│   │   │   │   │   ├── mod.rs
+│   │   │   │   │   └── client.rs
+│   │   │   │   │
+│   │   │   │   └── ollama/              # Ollama 本地实现
+│   │   │   │       ├── mod.rs
+│   │   │   │       └── client.rs
+│   │   │   │
+│   │   │   ├── database/                # 数据库实现
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── sqlite.rs            # SQLite 连接
+│   │   │   │   ├── migrations.rs        # 迁移管理
+│   │   │   │   ├── repositories/        # 仓储实现
+│   │   │   │   │   ├── mod.rs
+│   │   │   │   │   ├── chat_repo.rs
+│   │   │   │   │   ├── pet_repo.rs
+│   │   │   │   │   └── config_repo.rs
+│   │   │   │   └── migrations/          # SQL 迁移文件
+│   │   │   │       ├── 001_init.sql
+│   │   │   │       ├── 002_chat.sql
+│   │   │   │       └── 003_commands.sql
+│   │   │   │
+│   │   │   ├── mcp/                     # MCP 协议实现
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── client.rs            # MCP 客户端
+│   │   │   │   ├── transport.rs         # stdio 传输
+│   │   │   │   ├── registry.rs          # 工具注册表
+│   │   │   │   └── executor.rs          # 工具执行器
+│   │   │   │
+│   │   │   ├── tts/                     # 语音合成实现
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── edge_tts.rs          # Edge TTS
+│   │   │   │   ├── local_tts.rs         # 本地 TTS
+│   │   │   │   └── lip_sync.rs          # 口型数据生成
+│   │   │   │
+│   │   │   ├── storage/                 # 文件存储
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── config_store.rs      # 配置存储
+│   │   │   │   ├── cache.rs             # 缓存管理
+│   │   │   │   └── assets.rs            # 资源管理
+│   │   │   │
+│   │   │   └── platform/                # 平台适配
+│   │   │       ├── mod.rs
+│   │   │       ├── windows.rs           # Windows 特有
+│   │   │       ├── macos.rs             # macOS 特有
+│   │   │       └── linux.rs             # Linux 特有
 │   │   │
-│   │   └── utils/                  # 工具函数
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   │ # PLUGINS: 插件系统
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   ├── plugins/                     # 插件系统
+│   │   │   ├── mod.rs
+│   │   │   ├── manager.rs               # 插件管理器
+│   │   │   ├── loader.rs                # 插件加载器
+│   │   │   ├── trait.rs                 # 插件 trait 定义
+│   │   │   └── builtin/                 # 内置插件
+│   │   │       ├── mod.rs
+│   │   │       ├── weather.rs           # 天气插件
+│   │   │       ├── reminder.rs          # 提醒插件
+│   │   │       └── calendar.rs          # 日历插件
+│   │   │
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   │ # SHARED: 共享模块
+│   │   │ # ─────────────────────────────────────────────────────────────
+│   │   ├── shared/                      # 共享代码
+│   │   │   ├── mod.rs
+│   │   │   ├── error.rs                 # 统一错误定义
+│   │   │   ├── config.rs                # 配置结构
+│   │   │   ├── constants.rs             # 常量定义
+│   │   │   └── types.rs                 # 共享类型
+│   │   │
+│   │   └── utils/                       # 工具函数
 │   │       ├── mod.rs
-│   │       ├── platform.rs         # 平台检测
-│   │       └── logger.rs           # 日志
+│   │       ├── logger.rs                # 日志工具
+│   │       ├── time.rs                  # 时间工具
+│   │       ├── crypto.rs                # 加密工具
+│   │       └── http.rs                  # HTTP 工具
 │   │
-│   ├── migrations/                 # SQLite 迁移
-│   │   ├── 001_init.sql
-│   │   └── 002_chat_history.sql
+│   ├── tests/                           # Rust 测试
+│   │   ├── unit/                        # 单元测试
+│   │   │   ├── core_tests.rs
+│   │   │   └── services_tests.rs
+│   │   └── integration/                 # 集成测试
+│   │       └── api_tests.rs
 │   │
-│   └── icons/                      # 应用图标
+│   └── icons/                           # 应用图标
 │       ├── 32x32.png
 │       ├── 128x128.png
+│       ├── 256x256.png
 │       ├── icon.ico
 │       └── icon.icns
 │
-├── src/                            # ===== Vue 3 前端 =====
-│   ├── index.html                  # HTML 入口
-│   ├── main.ts                     # Vue 入口
-│   ├── App.vue                     # 根组件
+├── src/                                 # ========== VUE 3 前端 ==========
+│   ├── index.html                       # HTML 入口
 │   │
-│   ├── views/                      # 页面
-│   │   ├── PetView.vue             # 宠物视图
-│   │   ├── ChatView.vue            # 聊天视图
-│   │   └── SettingsView.vue        # 设置视图
+│   ├── main.ts                          # Vue 应用入口
+│   ├── App.vue                          # 根组件
 │   │
-│   ├── components/                 # 组件
-│   │   ├── pet/                    # 宠物组件
-│   │   │   ├── PetCanvas.vue       # Live2D 画布
-│   │   │   ├── PetBubble.vue       # 对话气泡
-│   │   │   ├── PetContextMenu.vue  # 右键菜单
-│   │   │   └── PetStatus.vue       # 状态指示
-│   │   ├── chat/                   # 聊天组件
-│   │   │   ├── ChatMessage.vue     # 消息
-│   │   │   ├── ChatInput.vue       # 输入
-│   │   │   ├── ChatStream.vue      # 流式输出
-│   │   │   └── MessageBubble.vue   # 气泡
-│   │   ├── settings/               # 设置组件
-│   │   │   ├── GeneralPanel.vue    # 通用
-│   │   │   ├── ApiPanel.vue        # API
-│   │   │   ├── AppearancePanel.vue # 外观
-│   │   │   └── ShortcutPanel.vue   # 快捷键
-│   │   └── ui/                     # 基础 UI
+│   │ # ─────────────────────────────────────────────────────────────
+│   │ # VIEWS: 页面视图（路由级别）
+│   │ # ─────────────────────────────────────────────────────────────
+│   ├── views/                           # 页面视图
+│   │   ├── pet/                         # 宠物主窗口
+│   │   │   └── PetView.vue              # 宠物视图
+│   │   │
+│   │   ├── chat/                        # 聊天窗口
+│   │   │   ├── ChatView.vue             # 聊天主视图
+│   │   │   └── QuickChatView.vue        # 快捷聊天视图
+│   │   │
+│   │   └── settings/                    # 设置窗口
+│   │       ├── SettingsView.vue         # 设置主视图
+│   │       └── panels/                  # 设置面板
+│   │           ├── GeneralPanel.vue
+│   │           ├── AppearancePanel.vue
+│   │           ├── ApiPanel.vue
+│   │           ├── CommandPanel.vue
+│   │           ├── ShortcutPanel.vue
+│   │           └── PluginPanel.vue
+│   │
+│   │ # ─────────────────────────────────────────────────────────────
+│   │ # COMPONENTS: 可复用组件
+│   │ # ─────────────────────────────────────────────────────────────
+│   ├── components/                      # 组件库
+│   │   │
+│   │   ├── pet/                         # 宠物相关组件
+│   │   │   ├── PetCanvas.vue            # Live2D/精灵图画布
+│   │   │   ├── PetHoverMenu.vue         # 悬浮菜单
+│   │   │   ├── PetContextMenu.vue       # 右键菜单
+│   │   │   ├── PetBubble.vue            # 对话气泡
+│   │   │   ├── PetStatus.vue            # 状态指示器
+│   │   │   └── PetEffects.vue           # 特效组件
+│   │   │
+│   │   ├── chat/                        # 聊天相关组件
+│   │   │   ├── ChatMessage.vue          # 消息组件
+│   │   │   ├── ChatInput.vue            # 输入组件
+│   │   │   ├── ChatStream.vue           # 流式输出
+│   │   │   ├── MessageBubble.vue        # 消息气泡
+│   │   │   ├── CommandChip.vue          # 指令标签
+│   │   │   └── CodeBlock.vue            # 代码块
+│   │   │
+│   │   ├── settings/                    # 设置相关组件
+│   │   │   ├── SettingItem.vue          # 设置项
+│   │   │   ├── SettingGroup.vue         # 设置分组
+│   │   │   ├── ApiKeyInput.vue          # API Key 输入
+│   │   │   └── ModelSelector.vue        # 模型选择器
+│   │   │
+│   │   └── ui/                          # 基础 UI 组件
 │   │       ├── BaseButton.vue
-│   │       ├── BaseModal.vue
 │   │       ├── BaseInput.vue
-│   │       └── BaseTooltip.vue
+│   │       ├── BaseModal.vue
+│   │       ├── BaseTooltip.vue
+│   │       ├── BaseDropdown.vue
+│   │       ├── BaseToast.vue
+│   │       └── BaseLoading.vue
 │   │
-│   ├── composables/                # 组合式函数
-│   │   ├── usePetEngine.ts         # 宠物引擎
-│   │   ├── useLive2D.ts            # Live2D 控制
-│   │   ├── useAnimation.ts         # 动画控制
-│   │   ├── useBehavior.ts          # 行为状态机
-│   │   ├── useChatService.ts       # 聊天服务
-│   │   ├── useAiProvider.ts        # AI 提供商
-│   │   ├── useSpeechService.ts     # 语音服务
-│   │   ├── useMcpClient.ts         # MCP 客户端
-│   │   ├── useTauriBridge.ts       # Tauri 桥接
-│   │   └── useTheme.ts             # 主题
+│   │ # ─────────────────────────────────────────────────────────────
+│   │ # MODULES: 业务模块（领域驱动）
+│   │ # ─────────────────────────────────────────────────────────────
+│   ├── modules/                         # 业务模块
+│   │   │
+│   │   ├── pet/                         # 宠物模块
+│   │   │   ├── index.ts                 # 模块入口
+│   │   │   ├── types.ts                 # 模块类型
+│   │   │   ├── store.ts                 # Pinia Store
+│   │   │   ├── composables/             # 组合式函数
+│   │   │   │   ├── usePet.ts            # 宠物核心
+│   │   │   │   ├── usePetPosition.ts    # 位置管理
+│   │   │   │   └── usePetInteraction.ts # 交互处理
+│   │   │   └── constants.ts             # 模块常量
+│   │   │
+│   │   ├── chat/                        # 聊天模块
+│   │   │   ├── index.ts
+│   │   │   ├── types.ts
+│   │   │   ├── store.ts
+│   │   │   ├── composables/
+│   │   │   │   ├── useChat.ts           # 聊天核心
+│   │   │   │   ├── useMessage.ts        # 消息处理
+│   │   │   │   ├── useStream.ts         # 流式处理
+│   │   │   │   └── useQuickCommand.ts   # 快捷指令
+│   │   │   └── utils.ts                 # 工具函数
+│   │   │
+│   │   ├── ai/                          # AI 模块
+│   │   │   ├── index.ts
+│   │   │   ├── types.ts
+│   │   │   ├── store.ts
+│   │   │   ├── composables/
+│   │   │   │   ├── useAi.ts             # AI 核心
+│   │   │   │   ├── useProvider.ts       # 提供商管理
+│   │   │   │   └── useModel.ts          # 模型管理
+│   │   │   └── providers/               # 前端提供商适配
+│   │   │       ├── base.ts
+│   │   │       ├── openai.ts
+│   │   │       └── claude.ts
+│   │   │
+│   │   ├── behavior/                    # 行为模块
+│   │   │   ├── index.ts
+│   │   │   ├── types.ts
+│   │   │   ├── store.ts
+│   │   │   ├── composables/
+│   │   │   │   ├── useBehavior.ts       # 行为核心
+│   │   │   │   └── useTrigger.ts        # 触发器管理
+│   │   │   └── config.ts                # 行为配置
+│   │   │
+│   │   ├── mcp/                         # MCP 模块
+│   │   │   ├── index.ts
+│   │   │   ├── types.ts
+│   │   │   ├── store.ts
+│   │   │   └── composables/
+│   │   │       ├── useMcp.ts
+│   │   │       └── useTool.ts
+│   │   │
+│   │   └── settings/                    # 设置模块
+│   │       ├── index.ts
+│   │       ├── types.ts
+│   │       ├── store.ts
+│   │       └── composables/
+│   │           ├── useSettings.ts
+│   │           └── useTheme.ts
 │   │
-│   ├── engine/                     # 渲染引擎
-│   │   ├── types.ts                # 引擎类型
-│   │   ├── Live2DRenderer.ts       # Live2D 渲染器
-│   │   ├── SpriteRenderer.ts       # 精灵图渲染器
-│   │   ├── AnimationController.ts  # 动画控制器
-│   │   ├── HitDetector.ts          # 碰撞检测
-│   │   └── LipSyncController.ts    # 口型同步
+│   │ # ─────────────────────────────────────────────────────────────
+│   │ # CORE: 核心引擎（与技术栈无关的纯逻辑）
+│   │ # ─────────────────────────────────────────────────────────────
+│   ├── core/                            # 核心引擎
+│   │   │
+│   │   ├── renderer/                    # 渲染引擎
+│   │   │   ├── types.ts                 # 渲染器接口
+│   │   │   ├── RendererManager.ts       # 渲染器管理
+│   │   │   ├── live2d/                  # Live2D 渲染器
+│   │   │   │   ├── Live2DRenderer.ts
+│   │   │   │   ├── Live2DModel.ts
+│   │   │   │   ├── Live2DMotion.ts
+│   │   │   │   └── Live2DHitTest.ts
+│   │   │   ├── sprite/                  # 精灵图渲染器
+│   │   │   │   ├── SpriteRenderer.ts
+│   │   │   │   ├── SpriteSheet.ts
+│   │   │   │   └── SpriteAnimator.ts
+│   │   │   └── hybrid/                  # 混合渲染器
+│   │   │       └── HybridRenderer.ts
+│   │   │
+│   │   ├── behavior/                    # 行为引擎
+│   │   │   ├── types.ts                 # 行为接口
+│   │   │   ├── StateMachine.ts          # 状态机
+│   │   │   ├── states/                  # 状态实现
+│   │   │   │   ├── BaseState.ts
+│   │   │   │   ├── IdleState.ts
+│   │   │   │   ├── WalkState.ts
+│   │   │   │   ├── TalkState.ts
+│   │   │   │   ├── SleepState.ts
+│   │   │   │   └── ReactState.ts
+│   │   │   ├── transitions.ts           # 转换规则
+│   │   │   └── triggers/                # 触发器
+│   │   │       ├── BaseTrigger.ts
+│   │   │       ├── TimeTrigger.ts
+│   │   │       ├── InteractionTrigger.ts
+│   │   │       └── SystemTrigger.ts
+│   │   │
+│   │   ├── interaction/                 # 交互引擎
+│   │   │   ├── types.ts
+│   │   │   ├── HitDetector.ts           # 碰撞检测
+│   │   │   ├── DragHandler.ts           # 拖拽处理
+│   │   │   ├── HoverHandler.ts          # 悬浮处理
+│   │   │   └── GestureHandler.ts        # 手势处理
+│   │   │
+│   │   └── lip-sync/                    # 口型同步引擎
+│   │       ├── LipSyncController.ts
+│   │       ├── AudioAnalyzer.ts
+│   │       └── VisemeMapper.ts
 │   │
-│   ├── behavior/                   # 行为系统
-│   │   ├── StateMachine.ts         # 状态机
-│   │   ├── states/                 # 状态
-│   │   │   ├── BaseState.ts
-│   │   │   ├── IdleState.ts
-│   │   │   ├── WalkState.ts
-│   │   │   ├── TalkState.ts
-│   │   │   ├── SleepState.ts
-│   │   │   └── ReactState.ts
-│   │   ├── transitions.ts          # 转换规则
-│   │   ├── triggers/               # 触发器
-│   │   │   ├── TimeTrigger.ts
-│   │   │   ├── InteractionTrigger.ts
-│   │   │   └── SystemTrigger.ts
-│   │   └── config.ts               # 行为配置
+│   │ # ─────────────────────────────────────────────────────────────
+│   │ # SERVICES: 前端服务层（与后端通信）
+│   │ # ─────────────────────────────────────────────────────────────
+│   ├── services/                        # 服务层
+│   │   ├── tauri/                       # Tauri 通信
+│   │   │   ├── index.ts                 # 统一导出
+│   │   │   ├── commands.ts              # 命令封装
+│   │   │   ├── events.ts                # 事件监听
+│   │   │   └── types.ts                 # 通信类型
+│   │   │
+│   │   ├── storage/                     # 本地存储
+│   │   │   ├── index.ts
+│   │   │   ├── localStorage.ts          # LocalStorage
+│   │   │   └── indexedDB.ts             # IndexedDB
+│   │   │
+│   │   └── event-bus/                   # 事件总线
+│   │       ├── index.ts
+│   │       └── EventBus.ts
 │   │
-│   ├── stores/                     # Pinia 状态
-│   │   ├── pet.ts                  # 宠物状态
-│   │   ├── chat.ts                 # 聊天状态
-│   │   ├── settings.ts             # 设置状态
-│   │   └── ui.ts                   # UI 状态
+│   │ # ─────────────────────────────────────────────────────────────
+│   │ # PLUGINS: 前端插件系统
+│   │ # ─────────────────────────────────────────────────────────────
+│   ├── plugins/                         # 插件系统
+│   │   ├── index.ts
+│   │   ├── types.ts                     # 插件接口
+│   │   ├── manager.ts                   # 插件管理器
+│   │   └── builtin/                     # 内置插件
+│   │       ├── theme-plugin.ts          # 主题插件
+│   │       ├── i18n-plugin.ts           # 国际化插件
+│   │       └── notification-plugin.ts   # 通知插件
 │   │
-│   ├── services/                   # 前端服务
-│   │   ├── tauri.ts                # Tauri 通信
-│   │   ├── events.ts               # 事件总线
-│   │   └── storage.ts              # 本地存储
+│   │ # ─────────────────────────────────────────────────────────────
+│   │ # SHARED: 共享资源
+│   │ # ─────────────────────────────────────────────────────────────
+│   ├── shared/                          # 共享代码
+│   │   ├── types/                       # 全局类型
+│   │   │   ├── index.ts
+│   │   │   ├── pet.ts
+│   │   │   ├── chat.ts
+│   │   │   ├── settings.ts
+│   │   │   └── events.ts
+│   │   │
+│   │   ├── constants/                   # 全局常量
+│   │   │   ├── index.ts
+│   │   │   ├── app.ts
+│   │   │   └── config.ts
+│   │   │
+│   │   └── utils/                       # 工具函数
+│   │       ├── index.ts
+│   │       ├── math.ts
+│   │       ├── time.ts
+│   │       ├── color.ts
+│   │       ├── platform.ts
+│   │       └── validator.ts
 │   │
-│   ├── types/                      # TypeScript 类型
-│   │   ├── pet.ts
-│   │   ├── chat.ts
-│   │   ├── settings.ts
-│   │   ├── tauri.ts
-│   │   └── live2d.ts
-│   │
-│   ├── assets/                     # 静态资源
-│   │   ├── models/                 # Live2D 模型
+│   │ # ─────────────────────────────────────────────────────────────
+│   │ # ASSETS: 静态资源
+│   │ # ─────────────────────────────────────────────────────────────
+│   ├── assets/                          # 静态资源
+│   │   ├── models/                      # Live2D 模型
 │   │   │   └── .gitkeep
-│   │   ├── sprites/                # 精灵图
+│   │   ├── sprites/                     # 精灵图
 │   │   │   └── .gitkeep
-│   │   ├── audio/                  # 音频
-│   │   │   └── .gitkeep
-│   │   ├── images/                 # 图片
+│   │   ├── audio/                       # 音频
+│   │   │   ├── effects/                 # 音效
+│   │   │   └── voice/                   # 语音
+│   │   ├── images/                      # 图片
 │   │   │   ├── icons/
-│   │   │   └── backgrounds/
-│   │   └── styles/                 # 样式
-│   │       ├── global.css
-│   │       └── animations.css
+│   │   │   ├── backgrounds/
+│   │   │   └── avatars/
+│   │   ├── fonts/                       # 字体
+│   │   └── styles/                      # 全局样式
+│   │       ├── base/                    # 基础样式
+│   │       │   ├── reset.css
+│   │       │   ├── variables.css
+│   │       │   └── typography.css
+│   │       ├── components/              # 组件样式
+│   │       ├── themes/                  # 主题样式
+│   │       │   ├── light.css
+│   │       │   └── dark.css
+│   │       └── global.css               # 全局入口
 │   │
-│   └── utils/                      # 工具
-│       ├── math.ts
-│       ├── platform.ts
-│       └── logger.ts
+│   └── env.d.ts                         # 环境类型声明
 │
-├── public/                         # 公共资源
-│   └── live2d/                     # Live2D SDK
-│       ├── live2dcubismcore.min.js
-│       └── live2d.min.js
+├── public/                              # 公共静态资源
+│   ├── live2d/                          # Live2D SDK
+│   │   ├── live2dcubismcore.min.js
+│   │   └── live2d.min.js
+│   └── default-model/                   # 默认模型
+│       └── .gitkeep
 │
-├── scripts/                        # 工具脚本
-│   ├── build.ts                    # 构建
-│   ├── dev.ts                      # 开发
-│   └── package-model.ts            # 模型打包
+├── plugins/                             # 外部插件目录
+│   └── .gitkeep
 │
-├── tests/                          # 测试
-│   ├── unit/
-│   └── e2e/
+├── scripts/                             # 工具脚本
+│   ├── build.ts                         # 构建脚本
+│   ├── dev.ts                           # 开发脚本
+│   ├── generate-types.ts                # 类型生成
+│   └── package-model.ts                 # 模型打包
 │
-└── docs/
-    ├── architecture.md
-    ├── development.md
-    └── live2d-model.md             # Live2D 模型说明
+├── tests/                               # 前端测试
+│   ├── unit/                            # 单元测试
+│   │   ├── core/
+│   │   ├── modules/
+│   │   └── components/
+│   ├── integration/                     # 集成测试
+│   │   └── api.test.ts
+│   └── e2e/                             # E2E 测试
+│       └── pet.spec.ts
+│
+├── docs/                                # 项目文档
+│   ├── architecture.md                  # 架构文档
+│   ├── development.md                   # 开发指南
+│   ├── api.md                           # API 文档
+│   ├── plugins.md                       # 插件开发指南
+│   └── deployment.md                    # 部署指南
+│
+└── .github/                             # GitHub 配置
+    ├── workflows/                       # CI/CD
+    │   ├── ci.yml                       # 持续集成
+    │   ├── release.yml                  # 发布流程
+    │   └── docs.yml                     # 文档部署
+    └── ISSUE_TEMPLATE/                  # Issue 模板
+        ├── bug_report.md
+        └── feature_request.md
+```
+
+---
+
+## 架构设计说明
+
+### Rust 后端分层架构
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Commands Layer（命令层）                                        │
+│  • Tauri IPC 接口，薄控制器                                       │
+│  • 只做参数校验和转发，不含业务逻辑                                 │
+│  • 每个命令对应一个 Service 方法                                   │
+├─────────────────────────────────────────────────────────────────┤
+│  Services Layer（服务层）                                        │
+│  • 业务逻辑编排，用例实现                                          │
+│  • 按领域划分：pet / chat / ai / window / system                  │
+│  • 可组合多个 Core 模块完成复杂业务                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  Core Layer（核心层）                                            │
+│  • 纯领域逻辑，无外部依赖                                          │
+│  • Domain：实体、值对象、领域事件                                   │
+│  • Behavior：状态机、转换规则、触发器                               │
+│  • Event：事件总线、事件类型                                       │
+├─────────────────────────────────────────────────────────────────┤
+│  Infrastructure Layer（基础设施层）                               │
+│  • 外部依赖的具体实现                                              │
+│  • AI 提供商（OpenAI / Claude / Gemini / Ollama）                 │
+│  • 数据库（SQLite + Repository 模式）                             │
+│  • MCP、TTS、文件存储、平台适配                                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**依赖规则**：Commands → Services → Core ← Infrastructure  
+**核心层不依赖基础设施**，通过 trait 抽象实现解耦
+
+### Vue 前端模块化架构
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Views（视图层）                                                  │
+│  • 页面级组件，路由入口                                            │
+│  • 组合 Module 的 composables 和 Components                       │
+├─────────────────────────────────────────────────────────────────┤
+│  Components（组件层）                                             │
+│  • 可复用的 UI 组件                                               │
+│  • 按功能域划分：pet / chat / settings / ui                       │
+│  • 纯展示逻辑，通过 props/emits 交互                               │
+├─────────────────────────────────────────────────────────────────┤
+│  Modules（模块层）- 领域驱动                                       │
+│  • 每个业务领域独立模块                                            │
+│  • 包含：types + store + composables + constants                  │
+│  • 模块间通过 Events 通信，避免直接耦合                             │
+│  • 宠物模块 / 聊天模块 / AI 模块 / 行为模块 / 设置模块              │
+├─────────────────────────────────────────────────────────────────┤
+│  Core（核心引擎层）                                               │
+│  • 与技术栈无关的纯逻辑                                            │
+│  • Renderer：渲染引擎（Live2D / Sprite / Hybrid）                 │
+│  • Behavior：行为状态机                                            │
+│  • Interaction：交互处理（碰撞、拖拽、手势）                        │
+├─────────────────────────────────────────────────────────────────┤
+│  Services（服务层）                                               │
+│  • 与后端通信（Tauri Commands）                                    │
+│  • 本地存储（LocalStorage / IndexedDB）                            │
+│  • 事件总线                                                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 扩展性设计亮点
+
+#### 1. AI 提供商插件化
+
+```
+infrastructure/ai/
+├── openai/       # 新增提供商只需添加目录
+├── claude/
+├── gemini/
+└── ollama/
+
+# 实现 core/domain/ai/provider.rs 的 trait 即可
+trait AiProvider {
+    async fn chat(&self, messages: &[Message]) -> Result<String>;
+    async fn chat_stream(&self, messages: &[Message]) -> Result<impl Stream>;
+}
+```
+
+#### 2. 渲染器插件化
+
+```
+core/renderer/
+├── types.ts      # 统一接口
+├── live2d/       # Live2D 实现
+├── sprite/       # 精灵图实现
+└── hybrid/       # 混合实现
+
+# 新增渲染器只需实现 IRenderer 接口
+interface IRenderer {
+    init(container: HTMLElement): Promise<void>
+    loadModel(path: string): Promise<void>
+    playAnimation(name: string): void
+    hitTest(x: number, y: number): string | null
+}
+```
+
+#### 3. 行为触发器插件化
+
+```
+core/behavior/triggers/
+├── BaseTrigger.ts
+├── TimeTrigger.ts        # 时间触发
+├── InteractionTrigger.ts # 交互触发
+├── SystemTrigger.ts      # 系统事件触发
+└── CustomTrigger.ts      # 用户自定义触发（扩展点）
+```
+
+#### 4. 业务模块独立
+
+```
+modules/
+├── pet/        # 宠物模块可独立开发测试
+├── chat/       # 聊天模块可独立开发测试
+├── ai/         # AI 模块可独立开发测试
+└── behavior/   # 行为模块可独立开发测试
+
+# 每个模块包含完整的：类型 + 状态 + 逻辑 + 常量
+# 模块间通过事件总线解耦
 ```
 
 ---
