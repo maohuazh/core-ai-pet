@@ -1,0 +1,19 @@
+[package]
+name = "core-ai-pet"
+version = "0.1.0"
+description = "A desktop AI pet assistant"
+authors = ["you"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+# This feature is used for production builds or when a dev server is not specified
+custom-protocol = ["tauri/custom-protocol"]
