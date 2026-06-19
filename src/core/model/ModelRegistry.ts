@@ -39,6 +39,14 @@ export class ModelRegistry {
 export const modelRegistry = new ModelRegistry();
 
 modelRegistry.register({
+  id: "haru",
+  name: "Haru",
+  description: "Original CDN model, anime girl with idle and happy motions",
+  modelUrl: "https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json",
+  cubismVersion: 4,
+});
+
+modelRegistry.register({
   id: "hiyori",
   name: "Hiyori",
   description: "Live2D official Cubism 4 sample, rich idle motions",
