@@ -3,38 +3,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { Live2DRenderer } from "../core/renderer/live2d/Live2DRenderer";
+import { petStore } from "../core/model/PetStore";
 
 const canvasEl = ref<HTMLCanvasElement | null>(null);
 const renderer = ref<Live2DRenderer | null>(null);
 
 const onMouseDown = async (event: MouseEvent) => {
-  console.log("Mouse down on canvas, button:", event.button);
-  // Only trigger drag on left mouse button
   if (event.button !== 0) return;
-
   try {
     await invoke("start_dragging");
-    console.log("Drag started successfully");
   } catch (error) {
     console.error("Failed to start dragging:", error);
   }
 };
 
+// Watch for model changes and reload renderer
+watch(
+  () => petStore.currentModel.value,
+  async (newModel) => {
+    if (renderer.value && newModel) {
+      console.log(`Switching to model: ${newModel.name}`);
+      try {
+        await renderer.value.loadModel(newModel.modelUrl);
+        console.log(`Model switched to: ${newModel.name}`);
+      } catch (error) {
+        console.error(`Failed to switch to model ${newModel.name}:`, error);
+      }
+    }
+  }
+);
+
 onMounted(async () => {
   console.log("Live2DCanvas mounted");
-  console.log("Window.Live2DCubismCore:", !!window.Live2DCubismCore);
-  console.log("Window.Live2D:", !!(window as any).Live2D);
 
   if (!canvasEl.value) {
     console.error("Canvas element not available");
     return;
   }
-
-  console.log("Canvas element:", canvasEl.value);
-  console.log("Canvas size:", canvasEl.value.width, "x", canvasEl.value.height);
 
   renderer.value = new Live2DRenderer(canvasEl.value);
 
@@ -46,14 +54,14 @@ onMounted(async () => {
     return;
   }
 
-  // Load Haru model (Cubism 4)
+  // Load the current model from PetStore
+  const currentModel = petStore.currentModel.value;
   try {
-    const modelUrl = "https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json";
-    console.log("Loading Haru model from:", modelUrl);
-    await renderer.value.loadModel(modelUrl);
-    console.log("Haru model loaded successfully");
+    console.log(`Loading initial model: ${currentModel.name}`);
+    await renderer.value.loadModel(currentModel.modelUrl);
+    console.log(`Initial model loaded: ${currentModel.name}`);
   } catch (error) {
-    console.error("Failed to load Haru model:", error);
+    console.error(`Failed to load model ${currentModel.name}:`, error);
   }
 });
 

@@ -10,6 +10,7 @@ import { ref } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Live2DCanvas from "./components/Live2DCanvas.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
+import { petStore } from "./core/model/PetStore";
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
 const showMenu = ref(false);
@@ -39,6 +40,10 @@ const handleMenuAction = async (action: string) => {
       break;
     case "settings":
       alert("设置功能即将推出");
+      break;
+    case "switchModel":
+      petStore.switchToNextModel();
+      console.log(`Switched to model: ${petStore.currentModel.value.name}`);
       break;
     case "menu":
       alert("菜单功能即将推出");

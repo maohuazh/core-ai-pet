@@ -33,6 +33,7 @@ const props = defineProps<{
 const menuItems: MenuItem[] = [
   { action: "chat", icon: "💬", label: "聊天" },
   { action: "settings", icon: "⚙️", label: "设置" },
+  { action: "switchModel", icon: "🔄", label: "切换模型" },
   { action: "menu", icon: "☰", label: "菜单" },
   { action: "minimize", icon: "🔽", label: "最小化" },
   { action: "close", icon: "❌", label: "关闭" },
