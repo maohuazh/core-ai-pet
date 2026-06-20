@@ -1,729 +1,624 @@
 # CoreAIpet 架构设计文档
 
-> Version: 1.0 | Date: 2026-06-15
-> 基于 PRD V1.0 MVP 需求，面向扩展性的项目架构设计
+> Version: 2.0 | Date: 2026-06-20
+> 基于 Tauri 2 + Vue 3 + PixiJS + Live2D 的桌面宠物架构
 
 ---
 
-## 1. 设计原则
+## 1. 技术栈总览
 
-| 原则 | 说明 |
-|------|------|
-| **宿主极简** | Desktop 只做壳：窗口管理 + 渲染 + AI + 插件加载。业务逻辑全部在插件中 |
-| **插件即功能** | 所有用户可见功能（邮件/消息/任务）都是独立插件，可安装/卸载/更新 |
-| **Provider 模式** | 同一类功能（如消息）支持多个 Provider，每个 Provider 是独立插件 |
-| **接口隔离** | Core 层只有接口和模型，零实现。插件只依赖 Core，不依赖 Desktop |
-| **动态菜单** | 径向菜单不硬编码，根据已安装插件动态生成 |
+### 前端
+| 分类 | 技术 | 版本 | 说明 |
+|------|------|------|------|
+| 框架 | Vue 3 | ^3.5.13 | 组合式 API + `<script setup>` |
+| 构建工具 | Vite | ^6.0.3 | 开发服务器端口 1420 |
+| 类型检查 | TypeScript + vue-tsc | ^5.7.2 / ^2.2.0 | 严格模式 |
+| 2D 渲染 | PixiJS | ^7.4.2 | WebGL 渲染引擎 |
+| Live2D 显示 | pixi-live2d-display | ^0.4.0 | Live2D Cubism 2/4 模型加载 |
 
----
-
-## 2. 解决方案结构
-
-```
-CoreAIpet.sln
-│
-├── src/
-│   ├── CoreAIpet.Core/                     # 类库: 接口 + 模型 + 枚举 + 事件
-│   │   ├── Interfaces/
-│   │   │   ├── IPlugin.cs                  # 插件生命周期: Load/Activate/Execute/Unload
-│   │   │   ├── IPluginContext.cs            # 注入给插件的服务上下文
-│   │   │   ├── IPluginHost.cs              # 插件宿主服务 (注册菜单项等)
-│   │   │   ├── IMessageProvider.cs         # 消息源接口 ★ 新增
-│   │   │   ├── IEmailProvider.cs           # 邮箱源接口 ★ 新增
-│   │   │   ├── IAIService.cs               # 单一 AI 后端接口
-│   │   │   ├── IAIServiceProvider.cs       # AI 服务路由（策略模式）
-│   │   │   ├── IConfigService.cs           # 配置读写
-│   │   │   ├── IPositionService.cs         # 窗口位置持久化
-│   │   │   ├── ICharacterController.cs     # 角色状态/动画控制
-│   │   │   ├── IWindowService.cs           # 窗口操作（显隐/穿透/置顶）
-│   │   │   ├── IEventBus.cs                # 发布-订阅事件总线
-│   │   │   ├── ILogService.cs              # 日志服务
-│   │   │   └── IPluginMenuProvider.cs      # 为径向菜单提供菜单项
-│   │   │
-│   │   ├── Models/
-│   │   │   ├── Settings/
-│   │   │   │   └── AppSettings.cs          # 配置根对象 + 所有配置子类型
-│   │   │   ├── Chat/
-│   │   │   │   └── ChatModels.cs           # ChatMessage, ChatRequest, ChatResponse
-│   │   │   ├── Plugin/
-│   │   │   │   └── PluginModels.cs         # PluginManifest, PluginMenuItem, PluginMetadata
-│   │   │   └── Character/
-│   │   │       └── CharacterModels.cs      # CharacterState enum, EyePosition
-│   │   │
-│   │   ├── Events/
-│   │   │   └── Events.cs                   # IEvent + 5 个事件类
-│   │   │
-│   │   └── Exceptions/
-│   │       └── Exceptions.cs               # PluginLoadException, AIServiceException, ...
-│   │
-│   ├── CoreAIpet.Desktop/                  # WPF 应用: 宿主壳 + 服务实现 + UI
-│   │   ├── App.xaml / App.xaml.cs          # Generic Host 构建 + 启动
-│   │   ├── CompositionRoot.cs              # DI 注册组合根
-│   │   ├── SingleInstanceGuard.cs          # Mutex 单实例检测
-│   │   │
-│   │   ├── Services/
-│   │   │   ├── Configuration/
-│   │   │   │   ├── ConfigService.cs        # IConfigService: 配置读写 + 变更通知
-│   │   │   │   ├── JsonConfigStore.cs      # JSON 文件原子读写
-│   │   │   │   └── PositionService.cs      # IPositionService: 位置持久化
-│   │   │   │
-│   │   │   ├── AI/
-│   │   │   │   ├── AIServiceProvider.cs    # IAIServiceProvider: 路由 + 切换后端
-│   │   │   │   ├── OpenAIService.cs        # IAIService: OpenAI Chat Completions
-│   │   │   │   ├── AzureOpenAIService.cs   # IAIService: Azure OpenAI
-│   │   │   │   ├── OllamaService.cs        # IAIService: Ollama REST API
-│   │   │   │   ├── ChatSessionManager.cs   # 对话上下文管理
-│   │   │   │   └── SystemPromptBuilder.cs  # 系统提示词构建
-│   │   │   │
-│   │   │   ├── Plugins/
-│   │   │   │   ├── PluginManager.cs        # 扫描/加载/卸载插件（内置 + 外部）
-│   │   │   │   ├── PluginLoadContext.cs    # AssemblyLoadContext: 隔离加载外部 DLL
-│   │   │   │   ├── PluginHostService.cs   # IHostedService: 插件生命周期编排
-│   │   │   │   └── PluginContext.cs        # IPluginContext/IPluginHost: 服务上下文实现
-│   │   │   │
-│   │   │   ├── Character/
-│   │   │   │   └── CharacterController.cs  # ICharacterController: 状态机 + 动画控制
-│   │   │   │
-│   │   │   ├── Window/
-│   │   │   │   ├── WindowService.cs        # IWindowService: 显隐/穿透/置顶
-│   │   │   │   └── TrayIconService.cs      # 系统托盘管理
-│   │   │   │
-│   │   │   ├── Events/
-│   │   │   │   └── EventBus.cs             # IEventBus: 内存发布-订阅
-│   │   │   │
-│   │   │   └── Diagnostics/
-│   │   │       └── PerformanceMonitor.cs   # FPS/CPU/内存采集
-│   │   │
-│   │   ├── Win32/
-│   │   │   ├── NativeMethods.cs            # P/Invoke 声明（partial class）
-│   │   │   ├── NativeMethods.WindowStyle.cs
-│   │   │   ├── NativeMethods.Layered.cs
-│   │   │   ├── NativeMethods.Hook.cs
-│   │   │   ├── WindowStyleManager.cs       # 无边框 + 透明 + 置顶封装
-│   │   │   └── ClickThroughManager.cs      # 点击穿透切换逻辑
-│   │   │
-│   │   ├── Live2D/
-│   │   │   ├── Bridge/
-│   │   │   │   ├── Live2DBridgeNative.cs   # P/Invoke 声明
-│   │   │   │   ├── Live2DBridgeWrapper.cs  # 安全封装（异常转换、线程安全）
-│   │   │   │   └── NativeStructures.cs     # 与 C++ 共享的 struct
-│   │   │   ├── Rendering/
-│   │   │   │   ├── Live2DRenderHost.cs     # WPF HwndSource + 渲染循环
-│   │   │   │   └── FrameTimer.cs           # 60fps 渲染计时器
-│   │   │   └── Animation/
-│   │   │       ├── StateAnimationMapper.cs # CharacterState → 动画组映射
-│   │   │       └── EyeFollowController.cs  # 眼球追踪（±30°/±15°）
-│   │   │
-│   │   ├── Views/
-│   │   │   ├── MainWindow.xaml             # 主窗口（透明无边框 + Live2D 宿主）
-│   │   │   ├── ChatBubbleWindow.xaml       # 聊天气泡（独立透明窗口）
-│   │   │   ├── SettingsWindow.xaml         # 设置窗口
-│   │   │   └── DebugWindow.xaml            # 调试面板
-│   │   │
-│   │   ├── ViewModels/
-│   │   │   ├── MainViewModel.cs
-│   │   │   ├── ChatViewModel.cs
-│   │   │   ├── SettingsViewModel.cs
-│   │   │   ├── DebugViewModel.cs
-│   │   │   ├── RadialMenuViewModel.cs      # ★ 动态渲染已安装插件的菜单项
-│   │   │   └── TrayViewModel.cs
-│   │   │
-│   │   ├── Controls/
-│   │   │   ├── Live2DHostControl.cs        # HwndHost: 嵌入 C++ 渲染窗口
-│   │   │   └── RadialMenuControl.cs        # ★ 动态径向菜单控件
-│   │   │
-│   │   ├── Behaviors/
-│   │   │   ├── WindowDragBehavior.cs       # 左键拖拽（60fps）
-│   │   │   ├── ClickThroughBehavior.cs     # Ctrl+Alt+P 穿透切换
-│   │   │   └── AutoHideBehavior.cs         # 鼠标离开 1s 后隐藏
-│   │   │
-│   │   ├── Converters/
-│   │   ├── Themes/
-│   │   │   ├── LightTheme.xaml
-│   │   │   ├── DarkTheme.xaml
-│   │   │   └── ThemeManager.cs
-│   │   │
-│   │   ├── Assets/
-│   │   │   ├── app.ico
-│   │   │   ├── tray.ico
-│   │   │   ├── menu-icons/                 # 默认菜单图标（插件未提供时使用）
-│   │   │   └── live2d/                     # 默认 Live2D 模型
-│   │   │
-│   │   └── Resources/
-│   │       └── Styles/
-│   │           ├── WindowStyles.xaml
-│   │           └── ButtonStyles.xaml
-│   │
-│   ├── CoreAIpet.Live2DBridge/             # C++ DLL: 封装 Live2D Cubism Native SDK
-│   │   ├── include/
-│   │   │   ├── bridge_api.h                # 导出函数 C 接口
-│   │   │   └── bridge_types.h              # 共享结构体
-│   │   ├── src/
-│   │   │   ├── dllmain.cpp
-│   │   │   └── bridge_api.cpp              # 导出函数 stub 实现
-│   │   ├── CMakeLists.txt
-│   │   └── README.md
-│   │
-│   └── Plugins/                            # ★ 所有插件项目（独立编译）
-│       ├── Directory.Build.props           # 插件项目公共构建配置
-│       │
-│       ├── CoreAIpet.Plugin.Jira/          # Jira 任务管理 + @通知
-│       │   ├── plugin.json
-│       │   ├── assets/jira.png
-│       │   ├── JiraPlugin.cs               # 实现 IPlugin
-│       │   ├── JiraApiClient.cs            # Jira REST API 客户端
-│       │   └── Models/
-│       │
-│       ├── CoreAIpet.Plugin.Email.Outlook/ # Outlook 邮箱提供者
-│       │   ├── plugin.json
-│       │   ├── assets/outlook.png
-│       │   ├── OutlookPlugin.cs            # 实现 IPlugin + IEmailProvider
-│       │   └── OutlookClient.cs
-│       │
-│       ├── CoreAIpet.Plugin.Email.Gmail/   # Gmail 邮箱提供者
-│       │   ├── plugin.json
-│       │   ├── assets/gmail.png
-│       │   └── GmailPlugin.cs              # 实现 IPlugin + IEmailProvider
-│       │
-│       ├── CoreAIpet.Plugin.Email.IMAP/    # 通用 IMAP 邮箱提供者
-│       │   ├── plugin.json
-│       │   ├── assets/imap.png
-│       │   └── ImapPlugin.cs               # 实现 IPlugin + IEmailProvider
-│       │
-│       ├── CoreAIpet.Plugin.Message.Teams/  # Microsoft Teams
-│       │   ├── plugin.json
-│       │   ├── assets/teams.png
-│       │   └── TeamsPlugin.cs              # 实现 IPlugin + IMessageProvider
-│       │
-│       ├── CoreAIpet.Plugin.Message.Slack/  # Slack
-│       │   ├── plugin.json
-│       │   ├── assets/slack.png
-│       │   └── SlackPlugin.cs              # 实现 IPlugin + IMessageProvider
-│       │
-│       ├── CoreAIpet.Plugin.Message.DingTalk/ # 钉钉
-│       │   ├── plugin.json
-│       │   ├── assets/dingtalk.png
-│       │   └── DingTalkPlugin.cs           # 实现 IPlugin + IMessageProvider
-│       │
-│       ├── CoreAIpet.Plugin.Message.Feishu/ # 飞书
-│       │   ├── plugin.json
-│       │   ├── assets/feishu.png
-│       │   └── FeishuPlugin.cs             # 实现 IPlugin + IMessageProvider
-│       │
-│       ├── CoreAIpet.Plugin.Message.QQ/     # QQ
-│       │   ├── plugin.json
-│       │   ├── assets/qq.png
-│       │   └── QQPlugin.cs                 # 实现 IPlugin + IMessageProvider
-│       │
-│       └── CoreAIpet.Plugin.Message.WeChat/ # 企业微信
-│           ├── plugin.json
-│           ├── assets/wechat.png
-│           └── WeChatPlugin.cs             # 实现 IPlugin + IMessageProvider
-│
-├── plugins/                                # 运行时插件目录（构建产物输出到此）
-│   ├── CoreAIpet.Plugin.Jira/
-│   │   ├── plugin.json
-│   │   ├── CoreAIpet.Plugin.Jira.dll
-│   │   └── assets/
-│   ├── CoreAIpet.Plugin.Email.Outlook/
-│   │   └── ...
-│   └── ...
-│
-├── tests/
-│   ├── CoreAIpet.Core.Tests/
-│   └── CoreAIpet.Desktop.Tests/
-│
-└── docs/
-    ├── PRD - Windows AI桌面助手 V1.0.md
-    └── Architecture.md                     # 本文档
-```
+### 后端/桌面端
+| 分类 | 技术 | 版本 | 说明 |
+|------|------|------|------|
+| 桌面框架 | Tauri 2 | ^2.2.0 | 原生桌面应用 |
+| 语言 | Rust | Edition 2021 | 后端逻辑 |
+| 插件 | tauri-plugin-shell | 2 | Shell 命令支持 |
+| 序列化 | serde + serde_json | 1 | JSON 序列化 |
 
 ---
 
-## 3. 项目职责与依赖
-
-### 3.1 依赖关系
-
-```
-                     ┌──────────────────────────────────────────┐
-                     │          CoreAIpet.Desktop               │
-                     │  (宿主壳: WPF + Services + UI + Live2D)  │
-                     └─────────────────┬────────────────────────┘
-                                       │
-                          ┌────────────┼────────────┐
-                          │            │            │
-                          ▼            ▼            ▼
-                  ┌──────────┐  ┌──────────┐  ┌──────────┐
-                  │ Core     │  │ Plugins  │  │ Live2D   │
-                  │ (接口)   │  │ (独立DLL) │  │ Bridge   │
-                  └──────────┘  └────┬─────┘  │ (C++ DLL)│
-                                     │        └──────────┘
-                                     │
-                              只依赖 Core
-                              不依赖 Desktop
-```
-
-### 3.2 各项目职责
-
-| 项目 | 类型 | 职责 | NuGet |
-|------|------|------|-------|
-| **CoreAIpet.Core** | 类库 | 接口 + 模型 + 枚举 + 事件，零实现 | `Microsoft.Extensions.Hosting.Abstractions` |
-| **CoreAIpet.Desktop** | WPF Exe | 宿主壳：窗口管理、AI服务、Live2D渲染、插件加载、UI | `CommunityToolkit.Mvvm`, `Microsoft.Extensions.Hosting`, `Serilog`, `OpenAI`, `Azure.AI.OpenAI` |
-| **CoreAIpet.Live2DBridge** | C++ DLL | 封装 Live2D Cubism Native SDK，提供 C 导出接口 | 无 |
-| **CoreAIpet.Plugin.*** | 类库(DLL) | 独立插件，实现 IPlugin + 业务逻辑 | 按需（如 `MailKit` for IMAP） |
-
----
-
-## 4. 插件架构
-
-### 4.1 核心理念
-
-**Desktop 只做壳，功能全在插件中。**
+## 2. 整体架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  CoreAIpet.Desktop (宿主壳)                   │
-│                                                              │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────┐   │
-│  │ 窗口管理  │  │ AI 对话  │  │ Live2D   │  │ PluginMgr  │   │
-│  │ 拖拽/穿透 │  │ 流式响应  │  │ 渲染引擎  │  │ 加载/卸载  │   │
-│  └──────────┘  └──────────┘  └──────────┘  └─────┬──────┘   │
-│                                                   │          │
-│  径向菜单 ←── 动态渲染 ──── 来自已安装的插件 ──────┘          │
+│                     Tauri 2 桌面窗口                          │
+│  配置: 透明 / 无边框 / 置顶 / 400×400 / skipTaskbar          │
+├──────────────────────────┬──────────────────────────────────┤
+│      Rust 后端层          │          Vue 3 前端层              │
+│                          │                                  │
+│  ┌────────────────────┐  │  ┌────────────────────────────┐   │
+│  │  commands/         │  │  │  App.vue (根组件)           │   │
+│  │   ├ start_dragging │◄─┼──┤   ├ Live2DCanvas.vue       │   │
+│  │   ├ set_window_pos │  │  │   │    └ Live2DRenderer.ts │   │
+│  │   └ get_window_pos │  │  │   │        ├ PixiJS App    │   │
+│  └────────────────────┘  │  │   │        └ pixi-live2d-  │   │
+│                          │  │   │           display       │   │
+│  ┌────────────────────┐  │  │   └ PetHoverMenu.vue       │   │
+│  │  services/         │  │  │        (6个环形功能按钮)     │   │
+│  │   └ window/        │  │  └────────────────────────────┘   │
+│  │     (窗口服务)      │  │                                  │
+│  └────────────────────┘  │  ┌────────────────────────────┐   │
+│                          │  │  core/                      │   │
+│  invoke() 命令调用 ──────┼──│   ├ model/ModelRegistry.ts  │   │
+│                          │  │   ├ model/PetStore.ts       │   │
+│                          │  │   └ renderer/live2d/        │   │
+│                          │  │     └ Live2DRenderer.ts     │   │
+│                          │  └────────────────────────────┘   │
+├──────────────────────────┴──────────────────────────────────┤
+│                 Live2D 模型资源 (public/models/)              │
+│    Hiyori / Mao / Natori (本地) + Haru (CDN)                │
 └─────────────────────────────────────────────────────────────┘
-                         │
-                         │ 加载 plugins/ 目录
-                         ▼
-        ┌────────────────┼────────────────────────┐
-        ▼                ▼                        ▼
-  ┌───────────┐   ┌───────────┐           ┌───────────┐
-  │ Jira 插件  │   │ Outlook   │           │ Slack     │
-  │ IPlugin   │   │ IEmail    │           │ IMessage  │
-  └───────────┘   └───────────┘           └───────────┘
 ```
 
-### 4.2 插件分类
+---
 
-| 分类 | 接口 | 示例 | 菜单入口 |
-|------|------|------|---------|
-| **功能插件** | `IPlugin` | Jira | 自定义菜单项 |
-| **邮箱提供者** | `IPlugin` + `IEmailProvider` | Outlook, Gmail, IMAP | "Email" 聚合入口 |
-| **消息提供者** | `IPlugin` + `IMessageProvider` | Slack, 钉钉, 飞书, Teams, QQ, 企业微信 | "Message" 聚合入口 |
+## 3. 前端架构
 
-### 4.3 插件生命周期
+### 3.1 组件层
 
-```
-                    PluginManager 启动
-                         │
-                         ▼
-        ┌─ 扫描 plugins/ 目录 ─────────────────────┐
-        │  读取每个子目录的 plugin.json              │
-        │  通过 AssemblyLoadContext 加载 DLL         │
-        │  找到 plugin.json 中 className 指定的类     │
-        └──────────────────────────────────────────┘
-                         │
-                         ▼ 对每个插件:
-        ┌──────────────────────────────────────────┐
-        │  Load(IPluginContext)                     │
-        │    → 获取配置/日志/事件总线/AI服务          │
-        │    → 注册菜单项 (RegisterMenuItem)         │
-        │                                           │
-        │  Activate()                               │
-        │    → 连接外部服务                          │
-        │    → 启动后台轮询/WebSocket                │
-        │                                           │
-        │  Execute(ct)                              │
-        │    → 核心业务逻辑                          │
-        │    → 周期性任务                            │
-        │                                           │
-        │  [应用关闭时]                              │
-        │  Deactivate() → 暂停                      │
-        │  Unload() → 释放资源                      │
-        └──────────────────────────────────────────┘
-```
-
-### 4.4 径向菜单动态渲染
-
-```
-原设计 (6个固定入口):        改进后 (动态渲染):
-
-      Task                      [插件A]  [插件B]
-                           [插件C]          [插件D]
-  Jira        Email
-        [角色]                 [插件E]  [插件F]
-                           [插件G]
- Message      Setting
-                            ↑ 根据已安装插件自动生成
-      Debug                   支持分组 + 折叠 + 更多页面
-```
-
-`RadialMenuViewModel` 从 `PluginManager` 获取所有已注册菜单项，动态计算位置。
-超过一页时支持翻页或分组显示。
-
-### 4.5 插件目录布局 (运行时)
-
-```
-plugins/
-└── CoreAIpet.Plugin.Message.Slack/
-    ├── plugin.json                 # 清单文件
-    ├── CoreAIpet.Plugin.Message.Slack.dll
-    ├── CoreAIpet.Core.dll          # 共享引用 (由 PluginLoadContext 处理)
-    └── assets/
-        └── slack.png
-```
-
-**plugin.json 格式:**
-
-```json
-{
-  "id": "provider.message.slack",
-  "name": "Slack",
-  "version": "1.0.0",
-  "author": "CoreAIpet",
-  "entryPoint": "CoreAIpet.Plugin.Message.Slack.dll",
-  "className": "CoreAIpet.Plugin.Message.Slack.SlackPlugin",
-  "icon": "assets/slack.png",
-  "description": "Slack 消息提供者"
-}
-```
-
-| 字段 | 说明 |
+| 文件 | 职责 |
 |------|------|
-| `id` | 唯一标识，建议格式: `provider.{category}.{name}` 或 `coreai.{name}` |
-| `entryPoint` | 插件 DLL 文件名 |
-| `className` | 实现 `IPlugin` 的完整类名（含命名空间） |
-| `icon` | 图标路径，相对于插件目录 |
+| `App.vue` | 根组件，管理悬浮菜单显隐、鼠标悬停交互、动作分发 |
+| `Live2DCanvas.vue` | Live2D 画布组件，初始化渲染器，监听模型切换，处理拖拽 |
+| `PetHoverMenu.vue` | 悬浮菜单，6个圆形按钮环形排列（任务/消息/Jira/邮件/Agent/设置） |
 
----
+### 3.2 核心层（`src/core/`）
 
-## 5. 核心接口
+#### 模型管理 (`core/model/`)
 
-### 5.1 IPlugin — 插件生命周期
+| 模块 | 职责 |
+|------|------|
+| `ModelRegistry.ts` | 模型注册中心，管理所有可用 Live2D 模型配置 |
+| `PetStore.ts` | 响应式状态管理（基于 Vue `ref`），跟踪当前模型，支持切换 |
 
-```csharp
-public interface IPlugin : IDisposable
-{
-    string Id { get; }                // "provider.message.slack"
-    string Name { get; }              // "Slack"
-    string Version { get; }           // "1.0.0"
-    PluginState State { get; }
+#### 渲染引擎 (`core/renderer/live2d/`)
 
-    Task LoadAsync(IPluginContext context);     // 初始化 + 注册菜单项
-    Task ActivateAsync();                       // 连接外部服务
-    Task ExecuteAsync(CancellationToken ct);    // 核心逻辑
-    Task DeactivateAsync();                     // 暂停
-    Task UnloadAsync();                         // 释放
+| 模块 | 职责 |
+|------|------|
+| `Live2DRenderer.ts` | 封装 PixiJS Application + pixi-live2d-display，负责模型加载/动画/表情 |
 
-    IReadOnlyList<PluginMenuItem> GetMenuItems();
-    Task HandleMenuActionAsync(string actionId);
-}
+### 3.3 数据流
+
+#### 模型切换流程
+```
+用户触发切换
+    → PetStore.switchToNextModel()
+    → Live2DCanvas watch 监听 currentModel 变化
+    → Live2DRenderer.loadModel(newUrl)
+    → 移除旧模型 → 加载新模型 → 自动播放 idle 动画
 ```
 
-### 5.2 IMessageProvider — 消息源
-
-```csharp
-public interface IMessageProvider : IDisposable
-{
-    string Id { get; }                 // "provider.message.slack"
-    string Name { get; }               // "Slack"
-    string Icon { get; }
-    ProviderConnectionState ConnectionState { get; }
-
-    Task<int> GetUnreadCountAsync(CancellationToken ct);
-    Task<IReadOnlyList<MessageItem>> GetRecentMessagesAsync(int count, CancellationToken ct);
-    Task ConnectAsync(CancellationToken ct);
-    Task DisconnectAsync(CancellationToken ct);
-
-    event EventHandler<MessageItem>? MessageReceived;
-    event EventHandler<ProviderConnectionState>? ConnectionStateChanged;
-}
+#### 窗口拖拽流程
+```
+用户在 canvas 上按下鼠标左键
+    → Live2DCanvas.onMouseDown()
+    → invoke("start_dragging")
+    → Rust commands::window::start_dragging()
+    → Tauri Window::start_dragging()
+    → 窗口跟随鼠标移动
 ```
 
-### 5.3 IEmailProvider — 邮箱源
+#### 悬浮菜单交互
+```
+鼠标进入 pet-container
+    → App.vue onMouseEnter()
+    → showMenu = true → PetHoverMenu 渲染
+    → 6个按钮环形排列（半径100px，等分360°）
 
-```csharp
-public interface IEmailProvider : IDisposable
-{
-    string Id { get; }                 // "provider.email.outlook"
-    string Name { get; }               // "Outlook"
-    string Icon { get; }
-    ProviderConnectionState ConnectionState { get; }
+鼠标离开 pet-container
+    → 200ms 延迟后 showMenu = false
+    → PetHoverMenu 销毁
 
-    Task<int> GetUnreadCountAsync(CancellationToken ct);
-    Task<IReadOnlyList<EmailItem>> GetRecentEmailsAsync(int count, CancellationToken ct);
-    Task ConnectAsync(CancellationToken ct);
-    Task DisconnectAsync(CancellationToken ct);
-
-    event EventHandler<EmailItem>? EmailReceived;
-    event EventHandler<ProviderConnectionState>? ConnectionStateChanged;
-}
+点击菜单按钮
+    → PetHoverMenu.handleClick(action)
+    → props.onAction(action)
+    → App.vue handleMenuAction(action)
+    → 执行对应功能（当前为 alert 占位）
 ```
 
-### 5.4 IPluginHost — 宿主服务
+### 3.4 路径别名
 
-```csharp
-public interface IPluginHost
-{
-    void RegisterMenuItem(PluginMenuItem menuItem);
-    void UnregisterMenuItem(string menuItemId);
-    IConfigService GetConfigService();
-    ILogService GetLogService();
-    IEventBus GetEventBus();
-    IAIServiceProvider GetAIService();
-    string GetPluginDataDirectory(string pluginId);
-}
-```
-
-### 5.5 IAIService / IAIServiceProvider — AI 策略模式
-
-```csharp
-public interface IAIService
-{
-    AIProvider Provider { get; }        // OpenAI / AzureOpenAI / Ollama
-    bool IsConfigured { get; }
-    Task<ChatResponse> SendMessageAsync(ChatRequest request, CancellationToken ct);
-    IAsyncEnumerable<string> SendMessageStreamAsync(ChatRequest request, CancellationToken ct);
-    Task<bool> TestConnectionAsync(CancellationToken ct);
-}
-
-public interface IAIServiceProvider
-{
-    IAIService Current { get; }
-    AIProvider ActiveProvider { get; }
-    void SwitchProvider(AIProvider provider);
-    IReadOnlyList<IAIService> GetAllProviders();
-}
-```
-
-### 5.6 ICharacterController — 角色状态机
-
-```csharp
-public interface ICharacterController
-{
-    CharacterState CurrentState { get; }    // Idle / Happy / Thinking / Talking
-    void SetState(CharacterState newState);
-    void SetState(CharacterState newState, TimeSpan minDuration);
-    void UpdateEyeTracking(double mouseX, double mouseY);
-    void PlayAnimation(string group, string name);
-    event EventHandler<CharacterStateChangedEventArgs>? StateChanged;
-}
-```
-
-状态转移规则:
-```
-Idle ──hover──► Happy ──leave──► Idle
-Idle ──send──► Thinking ──response──► Talking ──3s──► Idle
-Thinking ──new msg──► Thinking (自循环)
-Talking ──new msg──► Thinking (打断)
+```typescript
+// vite.config.ts
+"@":         → "src/"
+"@core":     → "src/core/"
+"@components": "src/components/"
+"@modules":  → "src/modules/"
+"@services": → "src/services/"
 ```
 
 ---
 
-## 6. 数据流
+## 4. 后端架构（Rust + Tauri 2）
 
-### 6.1 发送聊天消息
-
-```
-用户点击角色 / Alt+Space
-    │
-    ▼
-MainViewModel.OpenChatCommand
-    │
-    ▼
-ChatViewModel.ShowBubble()              ← 聊天气泡淡入
-    │
-    ▼ ChatViewModel.SendCommand
-    ├──► ICharacterController.SetState(Thinking)    ← Live2D 切换 thinking 动画
-    ├──► IAIServiceProvider.SendMessageAsync(req)
-    │       └──► OpenAI / Azure / Ollama (HTTP → API)
-    ├──► ICharacterController.SetState(Talking)     ← 收到首个 token
-    ├──► ChatViewModel.AppendToken(token)           ← 逐字显示
-    ├──► ICharacterController.SetState(Idle)        ← 完成 3s 后
-    └──► IEventBus.Publish(ChatMessageEvent)        ← 插件可订阅
-```
-
-### 6.2 插件加载流程
+### 4.1 模块结构
 
 ```
-应用启动
-    │
-    ▼
-PluginHostService.StartAsync()
-    │
-    ├──► 扫描 plugins/ 目录
-    │       对每个子目录:
-    │       ├── 读取 plugin.json
-    │       ├── 创建 PluginLoadContext (隔离加载)
-    │       ├── 加载 entryPoint DLL
-    │       └── 通过反射创建 className 实例 (IPlugin)
-    │
-    ├──► 对每个插件调用 LoadAsync(context)
-    │       插件内部:
-    │       ├── 读取配置
-    │       ├── 注册菜单项 → PluginHost.RegisterMenuItem()
-    │       └── 初始化内部资源
-    │
-    ├──► 对每个插件调用 ActivateAsync()
-    │       插件内部:
-    │       ├── 连接外部服务
-    │       └── 启动后台任务
-    │
-    └──► PluginManager 通知 RadialMenuViewModel
-            └── 重新渲染径向菜单 (包含新注册的菜单项)
+src-tauri/src/
+├── main.rs                  # 应用入口，注册插件和命令
+├── commands/
+│   ├── mod.rs               # 命令模块导出
+│   └── window.rs            # 窗口控制命令
+│       ├ start_dragging()    # 开始拖拽窗口
+│       ├ set_window_position() # 设置窗口位置
+│       └ get_window_position() # 获取窗口位置
+└── services/
+    ├── mod.rs               # 服务模块导出
+    └── window/
+        └── mod.rs           # WindowService 结构体
 ```
 
-### 6.3 消息聚合流
+### 4.2 Tauri 命令
 
-```
-SlackPlugin (IMessageProvider)
-    │ MessageReceived 事件
-    ▼
-PluginManager
-    │ 收集所有 IMessageProvider 的消息
-    ▼
-MessageViewModel (聚合展示)
-    ├── 未读总数 = Slack(5) + 钉钉(3) + 飞书(1) + ...
-    ├── 最新消息列表 (按时间排序, 混合所有源)
-    └── 点击某条 → 打开 DeepLink → 跳转到源应用
-```
+前端通过 `invoke()` 调用 Rust 命令：
 
----
+| 命令 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `start_dragging` | 无 | `Result<(), String>` | 开始窗口拖拽 |
+| `set_window_position` | `x: f64, y: f64` | `Result<(), String>` | 设置窗口位置 |
+| `get_window_position` | 无 | `Result<(f64, f64), String>` | 获取窗口位置 |
 
-## 7. Win32 互操作
-
-| 功能 | Win32 API | 封装类 |
-|------|-----------|--------|
-| 无边框窗口 | `SetWindowLong(GWL_STYLE, WS_POPUP)` | `WindowStyleManager` |
-| 桌面置顶 | `SetWindowPos(HWND_TOPMOST)` | `WindowStyleManager` |
-| 透明背景 | `SetLayeredWindowAttributes` + `DwmExtendFrameIntoClientArea` | `WindowStyleManager` |
-| 点击穿透 | `SetWindowLong(GWL_EXSTYLE, WS_EX_TRANSPARENT)` | `ClickThroughManager` |
-| 全局热键 | `RegisterHotKey` / `UnregisterHotKey` | `HotkeyManager` |
-| 鼠标钩子 | `SetWindowsHookEx(WH_MOUSE_LL)` | `NativeMethods.Hook` |
-| 系统托盘 | `Shell_NotifyIcon` | `TrayIconService` |
-| 光标位置 | `GetCursorPos` | `NativeMethods` |
-
----
-
-## 8. Live2D 渲染架构
-
-```
-C# WPF                                  C++ DLL
-┌──────────────────────────┐            ┌──────────────────────────┐
-│ Live2DHostControl        │            │ Live2DBridge.dll         │
-│ (HwndHost)               │            │                          │
-│   │                      │            │  ┌────────────────────┐  │
-│   ▼ Bridge_Render() ──── │── P/Invoke ─│► │ Cubism Renderer    │  │
-│   │                      │            │  │ (Direct3D 11)      │  │
-│   ▼ Bridge_SetEyeTarget()│── P/Invoke ─│► │ Eye Tracking       │  │
-│   │                      │            │  │                    │  │
-│   ▼ Bridge_SetMotion()   │── P/Invoke ─│► │ Animation Manager  │  │
-│                          │            │  └────────┬───────────┘  │
-│ HwndSource (子窗口 HWND) │◄── 渲染 ────│           │              │
-└──────────────────────────┘            │  Live2D Cubism SDK      │
-                                        └──────────────────────────┘
-```
-
-每帧由 `CompositionTarget.Rendering` (60fps) 触发 C# 调用 `Bridge_Render()`。
-
----
-
-## 9. 配置 Schema
-
-存储路径: `%APPDATA%\CoreAIpet\config.json`
+### 4.3 窗口配置
 
 ```json
+// tauri.conf.json
 {
-  "appearance": {
-    "scale": 1.0,
-    "opacity": 1.0,
-    "theme": "dark"
-  },
-  "system": {
-    "autoStart": false,
-    "alwaysOnTop": true,
-    "clickThrough": false
-  },
-  "ai": {
-    "activeProvider": "openai",
-    "openai": { "endpoint": "https://api.openai.com/v1", "apiKey": "", "model": "gpt-4" },
-    "azureOpenAI": { "endpoint": "", "apiKey": "", "deploymentName": "", "model": "" },
-    "ollama": { "endpoint": "http://localhost:11434", "model": "llama3" }
-  },
-  "position": { "x": 1600, "y": 820 },
-  "plugins": {
-    "provider.message.slack": { "enabled": true, "token": "", "workspace": "" },
-    "provider.message.dingtalk": { "enabled": true, "appKey": "", "appSecret": "" },
-    "provider.message.feishu": { "enabled": true, "appId": "", "appSecret": "" },
-    "provider.email.outlook": { "enabled": true, "clientId": "", "tenantId": "" },
-    "provider.email.gmail": { "enabled": true, "clientId": "", "clientSecret": "" },
-    "coreai.jira": { "enabled": true, "baseUrl": "", "username": "", "apiToken": "" }
-  },
-  "debug": { "logLevel": "Information", "showFps": false }
+  "windows": [{
+    "title": "Core AI Pet",
+    "width": 400,
+    "height": 400,
+    "resizable": false,
+    "decorations": false,      // 无边框
+    "transparent": true,       // 透明背景
+    "alwaysOnTop": true,       // 桌面置顶
+    "skipTaskbar": true,       // 不显示在任务栏
+    "center": true
+  }]
 }
 ```
 
-**关键设计**: 插件配置以插件 `id` 为 key，不预定义结构。插件在 `LoadAsync` 中自行读取和解析。
+---
+
+## 5. 目录结构
+
+```
+core-ai-pet/
+├── index.html                         # HTML 入口
+├── package.json                       # 前端依赖配置
+├── vite.config.ts                     # Vite 构建配置 + 路径别名
+├── tsconfig.json                      # TypeScript 配置
+├── tsconfig.node.json                 # Node 端 TypeScript 配置
+│
+├── src/                               # ★ 前端源码
+│   ├── main.ts                        # Vue 应用入口
+│   ├── App.vue                        # 根组件
+│   ├── vite-env.d.ts                  # Vite 类型声明
+│   │
+│   ├── components/                    # UI 组件
+│   │   ├── Live2DCanvas.vue           # Live2D 画布组件
+│   │   └── PetHoverMenu.vue           # 悬浮菜单组件
+│   │
+│   ├── core/                          # 核心逻辑
+│   │   ├── model/                     # 模型管理
+│   │   │   ├── ModelRegistry.ts       # 模型注册中心
+│   │   │   └── PetStore.ts            # 响应式状态管理
+│   │   │
+│   │   ├── renderer/                  # 渲染引擎
+│   │   │   └── live2d/
+│   │   │       ├── Live2DRenderer.ts  # Live2D 渲染器
+│   │   │       └── lib/               # Live2D Core 库
+│   │   │
+│   │   ├── behavior/                  # 行为系统（预留）
+│   │   └── interaction/               # 交互系统（预留）
+│   │
+│   ├── modules/                       # 功能模块（预留）
+│   │   ├── chat/                      # 聊天模块
+│   │   └── settings/                  # 设置模块
+│   │
+│   ├── services/                      # 服务层（预留）
+│   │   ├── storage/                   # 存储服务
+│   │   └── tauri/                     # Tauri 桥接服务
+│   │
+│   ├── assets/                        # 静态资源
+│   └── views/                         # 视图（预留）
+│
+├── src-tauri/                         # ★ Rust 后端
+│   ├── Cargo.toml                     # Rust 依赖配置
+│   ├── tauri.conf.json                # Tauri 窗口/构建配置
+│   ├── build.rs                       # 构建脚本
+│   ├── capabilities/
+│   │   └── default.json               # 权限配置
+│   ├── icons/                         # 应用图标
+│   ├── gen/                           # 自动生成文件
+│   │   └── schemas/                   # ACL/Capability schema
+│   │
+│   └── src/
+│       ├── main.rs                    # 应用入口
+│       ├── commands/                  # Tauri 命令
+│       │   ├── mod.rs
+│       │   └── window.rs              # 窗口控制命令
+│       ├── services/                  # 服务层
+│       │   ├── mod.rs
+│       │   └── window/
+│       │       └── mod.rs             # WindowService
+│       ├── core/                      # 核心逻辑（预留）
+│       └── infrastructure/            # 基础设施（预留）
+│
+├── public/models/                     # ★ Live2D 模型资源
+│   ├── Hiyori/                        # Hiyori 模型（Cubism 4）
+│   │   ├── Hiyori.model3.json
+│   │   ├── Hiyori.cdi3.json
+│   │   ├── Hiyori.physics3.json
+│   │   ├── Hiyori.pose3.json
+│   │   ├── Hiyori.userdata3.json
+│   │   ├── Hiyori.2048/               # 纹理贴图
+│   │   └── motions/                   # 动作文件 (10个)
+│   │
+│   ├── Mao/                           # Mao 模型（Cubism 4）
+│   │   ├── Mao.model3.json
+│   │   ├── expressions/               # 表情文件 (8个)
+│   │   └── motions/                   # 动作文件 (8个)
+│   │
+│   ├── Natori/                        # Natori 模型（Cubism 4）
+│   │   ├── Natori.model3.json
+│   │   ├── exp/                       # 表情文件 (11个)
+│   │   └── motions/                   # 动作文件 (8个)
+│   │
+│   └── shizuku/                       # Shizuku 模型（Cubism 2）
+│       └── shizuku.model.json
+│
+├── plugins/                           # 插件配置（预留）
+│   ├── CoreAIpet.Plugin.Email.Gmail/
+│   │   └── plugin.json
+│   ├── CoreAIpet.Plugin.Email.IMAP/
+│   │   └── plugin.json
+│   ├── CoreAIpet.Plugin.Email.Outlook/
+│   │   └── plugin.json
+│   ├── CoreAIpet.Plugin.Jira/
+│   │   └── plugin.json
+│   ├── CoreAIpet.Plugin.Message.DingTalk/
+│   │   └── plugin.json
+│   ├── CoreAIpet.Plugin.Message.Feishu/
+│   │   └── plugin.json
+│   ├── CoreAIpet.Plugin.Message.QQ/
+│   │   └── plugin.json
+│   ├── CoreAIpet.Plugin.Message.Slack/
+│   │   └── plugin.json
+│   ├── CoreAIpet.Plugin.Message.Teams/
+│   │   └── plugin.json
+│   └── CoreAIpet.Plugin.Message.WeChat/
+│       └── plugin.json
+│
+├── docs/                              # 文档
+│   ├── Architecture.md                # 本文档
+│   ├── PRD - Windows AI桌面助手 V1.0.md
+│   └── desktop-pet-design/            # 方案对比文档
+│       ├── README.md
+│       ├── 00-方案对比.md
+│       ├── 01-方案一-Electron+Live2D.md
+│       ├── 02-方案二-Tauri+精灵图.md
+│       ├── 03-方案三-PySide6+Live2D.md
+│       └── 04-方案四-Tauri+Live2D-推荐方案.md
+│
+├── openspec/                          # OpenSpec 变更管理
+│   ├── specs/                         # 当前规格定义
+│   │   ├── hover-menu-layout/
+│   │   ├── live2d-renderer/
+│   │   ├── model-registry/
+│   │   ├── model-rendering/
+│   │   ├── model-switching/
+│   │   ├── pet-drag/
+│   │   └── transparent-window/
+│   └── changes/                       # 变更历史
+│       ├── archive/                   # 已归档变更
+│       └── remove-window-border/      # 进行中变更
+│
+├── dist/                              # 构建输出目录
+│   ├── index.html
+│   ├── assets/
+│   └── models/
+│
+├── backup/dotnet-legacy/              # .NET 旧版本备份
+│   ├── CoreAIpet.Core/
+│   ├── CoreAIpet.Desktop/
+│   ├── CoreAIpet.Live2DBridge/
+│   └── Plugins/
+│
+├── vendor/live2d-models/              # Live2D 模型仓库（git submodule）
+│   └── Live2d-model/
+│
+├── node_modules/                      # npm 依赖
+└── tests/                             # 测试（遗留自 .NET 版本）
+    ├── CoreAIpet.Core.Tests/
+    └── CoreAIpet.Desktop.Tests/
+```
 
 ---
 
-## 10. 构建顺序
+## 6. 核心模块详解
 
+### 6.1 ModelRegistry — 模型注册中心
+
+```typescript
+interface PetModelConfig {
+  id: string;           // 唯一标识
+  name: string;         // 显示名称
+  description?: string; // 描述
+  modelUrl: string;     // 模型文件 URL（本地或 CDN）
+  cubismVersion: 2 | 4; // Live2D Cubism 版本
+}
 ```
-1. CoreAIpet.Live2DBridge.dll       (C++ DLL, 无 .NET 依赖)
-2. CoreAIpet.Core.dll               (类库, 无实现依赖)
-3. CoreAIpet.Desktop.exe            (WPF 宿主, 依赖 1+2)
-4. CoreAIpet.Plugin.*.dll           (各插件, 依赖 2, 输出到 plugins/)
+
+当前注册模型：
+
+| ID | 名称 | 来源 | 说明 |
+|----|------|------|------|
+| `haru` | Haru | CDN (jsDelivr) | 动漫女孩，有 idle/happy 动画 |
+| `hiyori` | Hiyori | 本地 (默认) | Live2D 官方 Cubism 4 示例，丰富 idle 动画 |
+| `mao` | Mao | 本地 | 8个表情 + 6个点击动画 |
+| `natori` | Natori | 本地 | 11个表情 + 5个点击动画 |
+
+### 6.2 PetStore — 响应式状态管理
+
+```typescript
+class PetStore {
+  currentModel: Ref<PetModelConfig>;  // 当前选中模型
+  models: Ref<PetModelConfig[]>;      // 所有可用模型
+
+  setCurrentModel(model: PetModelConfig): void;
+  switchToNextModel(): void;          // 循环切换到下一个模型
+}
+```
+
+### 6.3 Live2DRenderer — 渲染引擎
+
+```typescript
+interface IRenderer {
+  init(): Promise<void>;                           // 初始化 PixiJS + Live2D
+  loadModel(modelPath: string): Promise<void>;     // 加载模型
+  playMotion(group: string, index?: number): Promise<void>;  // 播放动画
+  playExpression(nameOrIndex: string | number): Promise<void>; // 播放表情
+  getMotionGroups(): MotionGroup[];                // 获取动画组列表
+  getExpressions(): ExpressionInfo[];              // 获取表情列表
+  destroy(): void;                                 // 销毁
+}
+```
+
+关键实现：
+- 使用 `pixi-live2d-display` 加载 Live2D 模型
+- 自动适配画布大小（缩放比例 0.9）
+- 加载完成后自动播放 idle 动画
+- 支持模型热切换（先销毁旧模型再加载新模型）
+
+### 6.4 PetHoverMenu — 悬浮菜单
+
+6个功能按钮环形排列，半径 100px：
+
+| 按钮 | 图标 | 功能 |
+|------|------|------|
+| task | 📋 | 任务管理 |
+| message | 💬 | 消息中心 |
+| jira | 🔗 | Jira 集成 |
+| email | 📧 | 邮件 |
+| agent | 🤖 | AI Agent |
+| settings | ⚙️ | 设置 |
+
+交互：
+- 鼠标悬停在宠物区域时显示
+- 离开后 200ms 延迟隐藏
+- 按钮有 popIn 动画和 hover 缩放效果
+- 点击后通过 `onAction` 回调处理
+
+---
+
+## 7. 构建与开发
+
+### 7.1 开发模式
+
+```bash
+npm run tauri dev
+```
+
+流程：
+1. Vite 启动开发服务器 (http://localhost:1420)
+2. Tauri 启动 Rust 后端
+3. 加载前端页面到 WebView
+
+### 7.2 生产构建
+
+```bash
+npm run build        # vue-tsc 类型检查 + vite build
+npm run tauri build  # 打包桌面应用
+```
+
+### 7.3 构建配置
+
+```typescript
+// vite.config.ts
+{
+  server: {
+    port: 1420,
+    strictPort: true,
+  },
+  build: {
+    target: "chrome105",  // Windows/Linux 使用 Chromium
+    minify: "esbuild",
+    sourcemap: true,      // debug 模式
+    outDir: "dist",
+  }
+}
 ```
 
 ---
 
-## 11. 扩展指南: 添加新 Provider
+## 8. 关键设计特点
 
-以「添加 Telegram 消息提供者」为例:
+### 8.1 透明无边框窗口
 
-```
-步骤 1: 在 src/Plugins/ 下创建目录
-        src/Plugins/CoreAIpet.Plugin.Message.Telegram/
-        ├── plugin.json
-        ├── assets/telegram.png
-        ├── TelegramPlugin.cs
-        └── TelegramClient.cs
+Tauri 窗口配置实现桌面宠物效果：
+- `transparent: true` — 透明背景
+- `decorations: false` — 无边框
+- `alwaysOnTop: true` — 桌面置顶
+- `skipTaskbar: true` — 不显示在任务栏
+- `resizable: false` — 固定大小 400×400
 
-步骤 2: plugin.json 声明
-        {
-          "id": "provider.message.telegram",
-          "className": "CoreAIpet.Plugin.Message.Telegram.TelegramPlugin",
-          ...
-        }
+### 8.2 多模型切换
 
-步骤 3: TelegramPlugin.cs 实现
-        - 继承 IPlugin (生命周期)
-        - 实现 IMessageProvider (消息能力)
-        - LoadAsync 中注册菜单项
-        - ActivateAsync 中连接 Telegram Bot API
+- `ModelRegistry` 注册多个 Live2D 模型
+- `PetStore` 响应式管理当前选中模型
+- `Live2DCanvas` 通过 `watch` 监听模型变化，自动重新加载
 
-步骤 4: csproj 引用 Core + Telegram.Bot NuGet
+### 8.3 Live2D 渲染
 
-步骤 5: 编译 → DLL 自动输出到 plugins/ 目录
+- 使用 **PixiJS** 作为 WebGL 渲染引擎
+- 使用 **pixi-live2d-display** 加载 Live2D 模型
+- 支持 Cubism 2 和 Cubism 4 格式
+- 自动播放 idle 动画
 
-步骤 6: 重启 Desktop → 自动发现并加载 → 径向菜单自动出现 Telegram 入口
-```
+### 8.4 环形悬浮菜单
 
-**无需修改 Desktop 任何代码。**
+- 鼠标悬停显示 6 个功能按钮
+- 半径 100px 环形排列
+- 有 popIn 动画和 hover 缩放效果
+- 200ms 延迟隐藏防止误操作
+
+### 8.5 窗口拖拽
+
+- 在 canvas 上按下鼠标左键
+- 通过 `invoke("start_dragging")` 调用 Rust 命令
+- Tauri 原生窗口拖拽实现
+
+### 8.6 插件架构预留
+
+- `plugins/` 目录已有消息/邮件/Jira 插件的 `plugin.json` 配置
+- 为后续扩展预留了清晰的架构
 
 ---
 
-## 12. 验证方案
+## 9. 依赖关系图
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      前端 (Vue 3)                        │
+│                                                         │
+│  App.vue ──► Live2DCanvas.vue ──► Live2DRenderer.ts     │
+│     │              │                    │                │
+│     │              ▼                    ▼                │
+│     └────► PetHoverMenu.vue      PixiJS + pixi-live2d   │
+│                                    -display              │
+│                                   │                      │
+│              PetStore.ts ◄────────┘                      │
+│                  │                                       │
+│                  ▼                                       │
+│            ModelRegistry.ts                              │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           │ invoke()
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│                    后端 (Tauri 2 + Rust)                  │
+│                                                         │
+│  main.rs ──► commands/window.rs                         │
+│                 ├ start_dragging()                       │
+│                 ├ set_window_position()                  │
+│                 └ get_window_position()                  │
+│                                                         │
+│              services/window/WindowService               │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 10. 扩展指南
+
+### 10.1 添加新 Live2D 模型
+
+```
+1. 将模型文件放入 public/models/{ModelName}/
+2. 在 ModelRegistry.ts 中注册:
+
+   modelRegistry.register({
+     id: "new-model",
+     name: "New Model",
+     description: "描述",
+     modelUrl: "./models/{ModelName}/{ModelName}.model3.json",
+     cubismVersion: 4,
+   });
+
+3. 重启应用即可在模型列表中看到新模型
+```
+
+### 10.2 添加菜单功能
+
+```
+1. 在 PetHoverMenu.vue 的 menuItems 中添加:
+   { action: "new-feature", icon: "🆕", label: "新功能" }
+
+2. 在 App.vue 的 actionLabels 中添加:
+   "new-feature": "新功能"
+
+3. 在 handleMenuAction 中实现具体逻辑
+```
+
+### 10.3 添加 Tauri 命令
+
+```rust
+// src-tauri/src/commands/window.rs
+#[tauri::command]
+pub async fn new_command() -> Result<(), String> {
+    // 实现逻辑
+    Ok(())
+}
+
+// src-tauri/src/main.rs
+// 注册命令
+.invoke_handler(tauri::generate_handler![
+    start_dragging,
+    set_window_position,
+    get_window_position,
+    new_command,  // 添加新命令
+])
+```
+
+---
+
+## 11. 验证方案
 
 | 验证项 | 方法 |
 |--------|------|
-| 插件发现 | 在 plugins/ 放入一个插件 DLL，重启应用，确认自动加载 |
-| 插件卸载 | 删除 plugins/ 中某插件目录，重启应用，确认不再加载 |
-| 动态菜单 | 安装/卸载不同插件，确认径向菜单自动增减入口 |
-| 消息聚合 | 同时启用 Slack + 钉钉插件，确认未读数合并显示 |
-| 邮箱聚合 | 同时启用 Outlook + Gmail，确认未读邮件合并显示 |
-| AI 对话 | 切换 OpenAI/Ollama，确认流式回复正常 |
-| 角色状态 | 发消息验证 Idle→Thinking→Talking→Idle 完整流转 |
-| 拖动 + 位置 | 拖动角色，重启，确认位置恢复 |
-| 点击穿透 | Ctrl+Alt+P，确认角色可见但不阻挡点击 |
-| 性能 | 启动<5s, 内存<300MB, CPU<5%, 60fps |
+| Live2D 渲染 | 启动应用，确认模型正常显示 |
+| 模型切换 | 触发切换，确认新模型加载成功 |
+| 窗口拖拽 | 按住宠物拖动，确认窗口跟随移动 |
+| 悬浮菜单 | 鼠标悬停，确认菜单显示；离开，确认菜单隐藏 |
+| 透明背景 | 确认窗口外区域透明 |
+| 桌面置顶 | 打开其他窗口，确认宠物始终在最上层 |
+| 动画播放 | 确认 idle 动画自动播放 |
+| 表情切换 | 调用 playExpression，确认表情变化 |
+
+---
+
+## 12. 已知问题与待优化
+
+### 待实现功能
+- [ ] AI 对话集成（Chat 模块预留）
+- [ ] 设置界面（Settings 模块预留）
+- [ ] 插件系统加载逻辑
+- [ ] 眼球追踪
+- [ ] 角色状态机（Idle/Happy/Thinking/Talking）
+- [ ] 位置持久化
+- [ ] 系统托盘
+
+### 技术优化
+- [ ] 添加错误边界处理
+- [ ] 优化模型加载性能
+- [ ] 添加模型缓存机制
+- [ ] 支持更多 Live2D 特效

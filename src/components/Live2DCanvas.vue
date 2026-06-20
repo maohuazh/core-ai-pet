@@ -7,14 +7,23 @@ import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { Live2DRenderer } from "../core/renderer/live2d/Live2DRenderer";
 import { petStore } from "../core/model/PetStore";
+import { createAvatar, type Avatar } from "../core/avatar";
 
 const canvasEl = ref<HTMLCanvasElement | null>(null);
 const renderer = ref<Live2DRenderer | null>(null);
+const avatar = ref<Avatar | null>(null);
+
+/** Expose avatar for parent components to use */
+defineExpose({ avatar });
 
 const onMouseDown = async (event: MouseEvent) => {
   if (event.button !== 0) return;
   try {
     await invoke("start_dragging");
+    // Save position after drag ends
+    const pos = await invoke<[number, number]>("get_window_position");
+    await invoke("storage_set", { key: "window_position_x", value: String(pos[0]) });
+    await invoke("storage_set", { key: "window_position_y", value: String(pos[1]) });
   } catch (error) {
     console.error("Failed to start dragging:", error);
   }
@@ -29,6 +38,11 @@ watch(
       try {
         await renderer.value.loadModel(newModel.modelUrl);
         console.log(`Model switched to: ${newModel.name}`);
+        // Recreate avatar for new model
+        if (avatar.value) {
+          avatar.value.destroy();
+        }
+        avatar.value = createAvatar("live2d", renderer.value);
       } catch (error) {
         console.error(`Failed to switch to model ${newModel.name}:`, error);
       }
@@ -38,6 +52,22 @@ watch(
 
 onMounted(async () => {
   console.log("Live2DCanvas mounted");
+
+  // Restore window position if saved
+  try {
+    const savedX = await invoke<string | null>("storage_get", { key: "window_position_x" });
+    const savedY = await invoke<string | null>("storage_get", { key: "window_position_y" });
+    if (savedX !== null && savedY !== null) {
+      const x = parseInt(savedX, 10);
+      const y = parseInt(savedY, 10);
+      if (!isNaN(x) && !isNaN(y)) {
+        await invoke("set_window_position", { x, y });
+        console.log(`Restored window position: (${x}, ${y})`);
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to restore window position:", error);
+  }
 
   if (!canvasEl.value) {
     console.error("Canvas element not available");
@@ -60,12 +90,19 @@ onMounted(async () => {
     console.log(`Loading initial model: ${currentModel.name}`);
     await renderer.value.loadModel(currentModel.modelUrl);
     console.log(`Initial model loaded: ${currentModel.name}`);
+
+    // Create Avatar abstraction after model loads
+    avatar.value = createAvatar("live2d", renderer.value);
+    console.log("Avatar created");
   } catch (error) {
     console.error(`Failed to load model ${currentModel.name}:`, error);
   }
 });
 
 onBeforeUnmount(() => {
+  if (avatar.value) {
+    avatar.value.destroy();
+  }
   if (renderer.value) {
     renderer.value.destroy();
   }
