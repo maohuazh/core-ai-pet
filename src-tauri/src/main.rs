@@ -5,11 +5,13 @@ mod core;
 mod infrastructure;
 mod services;
 
+use tauri::{AppHandle, Manager};
 use commands::event::{emit_event, subscribe_event};
 use commands::plugin::{plugin_disable, plugin_enable, plugin_list};
 use commands::state::{get_state, set_state};
 use commands::storage::{storage_get, storage_set};
 use commands::window::{get_window_position, set_window_position, start_dragging};
+use commands::window_native::set_click_through;
 
 use crate::core::eventbus::EventBus;
 use crate::core::plugin::PluginManager;
@@ -60,6 +62,7 @@ fn main() {
             start_dragging,
             set_window_position,
             get_window_position,
+            set_click_through,
             // State commands
             get_state,
             set_state,
@@ -74,6 +77,30 @@ fn main() {
             plugin_enable,
             plugin_disable,
         ])
+        .setup(|app| {
+            // Apply native window styles for desktop pet behavior
+            let handle = app.handle().clone();
+            if let Some(window) = handle.get_webview_window("main") {
+                let _ = commands::window_native::apply_layered(&window);
+                let _ = commands::window_native::apply_no_activate(&window);
+                let _ = window.set_shadow(false);
+
+                // Enable initial click-through (window starts transparent to mouse)
+                let _ = commands::window_native::window_set_click_through_pub(&window, true);
+
+                log::info!("Desktop pet window styles applied");
+            }
+
+            // Start cursor position monitor for smart click-through
+            commands::window_native::start_cursor_monitor(handle.clone());
+
+            // Create system tray icon
+            if let Err(e) = services::tray::create_tray(&handle) {
+                log::error!("Failed to create tray icon: {}", e);
+            }
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

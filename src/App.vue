@@ -1,5 +1,5 @@
 <template>
-  <div class="pet-container" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
+  <div class="pet-container">
     <Live2DCanvas ref="canvasRef" />
     <WindowCloseButton v-if="showMenu" />
     <PetHoverMenu v-if="showMenu" :on-action="handleMenuAction" />
@@ -7,28 +7,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import Live2DCanvas from "./components/Live2DCanvas.vue";
 import WindowCloseButton from "./components/WindowCloseButton.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
 const showMenu = ref(false);
+
+let unlistenStart: UnlistenFn | null = null;
+let unlistenEnd: UnlistenFn | null = null;
 let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const onMouseEnter = () => {
-  if (hideTimeout) {
-    clearTimeout(hideTimeout);
-    hideTimeout = null;
-  }
-  showMenu.value = true;
-};
+onMounted(async () => {
+  // Listen for cursor monitor events from Rust backend
+  unlistenStart = await listen("pet-hover-start", () => {
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+      hideTimeout = null;
+    }
+    showMenu.value = true;
+  });
 
-const onMouseLeave = () => {
-  hideTimeout = setTimeout(() => {
-    showMenu.value = false;
-  }, 200);
-};
+  unlistenEnd = await listen("pet-hover-end", () => {
+    hideTimeout = setTimeout(() => {
+      showMenu.value = false;
+    }, 200);
+  });
+});
+
+onUnmounted(() => {
+  unlistenStart?.();
+  unlistenEnd?.();
+  if (hideTimeout) clearTimeout(hideTimeout);
+});
 
 const actionLabels: Record<string, string> = {
   task: "任务",
