@@ -73,14 +73,34 @@ pub fn apply_layered(window: &WebviewWindow) -> Result<(), String> {
 }
 
 /// Start a background task that polls cursor position and toggles click-through.
-/// When cursor enters window bounds → disable click-through, emit "pet-hover-start".
-/// When cursor leaves window bounds → enable click-through, emit "pet-hover-end".
+/// Menu visibility logic:
+///   - Show menu when cursor is in model area (75x100) OR on any button (radius 80px circle, ~20px button hit area)
+///   - Hide menu when cursor is outside both model area and all buttons for 400ms (debounce)
+///   - The 400ms delay allows cursor to pass through the gap between model and buttons
 pub fn start_cursor_monitor(app: AppHandle) {
     std::thread::spawn(move || {
+        use std::time::{Duration, Instant};
         use windows_sys::Win32::Foundation::{POINT, RECT};
         use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
 
         let mut is_hovering = false;
+        let mut leave_time: Option<Instant> = None;
+        let hide_delay = Duration::from_millis(400); // 400ms debounce
+
+        // Button positions: 6 menu buttons at radius 80px + 1 close button
+        // Menu buttons: starting from top (-90°), 60° apart
+        // Close button: top-right corner (top: 8px, right: 8px, size: 28x28)
+        // Coordinates relative to window center (0,0), Y-axis points down
+        let button_positions: [(i32, i32); 7] = [
+            (0, -80),     // menu 0: top
+            (69, -40),    // menu 1: top-right
+            (69, 40),     // menu 2: bottom-right
+            (0, 80),      // menu 3: bottom
+            (-69, 40),    // menu 4: bottom-left
+            (-69, -40),   // menu 5: top-left
+            (78, -78),    // close button: top-right corner (178-100, 22-100)
+        ];
+        let button_hit_radius: i32 = 30; // pixels (increased for better detection)
 
         loop {
             let window = app.get_webview_window("main");
@@ -94,25 +114,51 @@ pub fn start_cursor_monitor(app: AppHandle) {
                         let rect_ok = GetWindowRect(hwnd, &mut rect);
 
                         if cursor_ok != 0 && rect_ok != 0 {
-                            // Use centered 160x160 hit area instead of full window rect
                             let cx = (rect.left + rect.right) / 2;
                             let cy = (rect.top + rect.bottom) / 2;
-                            let half = 80; // 160 / 2
-                            let in_bounds = cursor.x >= cx - half
-                                && cursor.x <= cx + half
-                                && cursor.y >= cy - half
-                                && cursor.y <= cy + half;
 
-                            if in_bounds && !is_hovering {
-                                is_hovering = true;
-                                let _ = window_set_click_through_pub(&window, false);
-                                let _ = app.emit("pet-hover-start", ());
-                                log::debug!("Cursor entered 160x160 hit area");
-                            } else if !in_bounds && is_hovering {
-                                is_hovering = false;
-                                let _ = window_set_click_through_pub(&window, true);
-                                let _ = app.emit("pet-hover-end", ());
-                                log::debug!("Cursor left 160x160 hit area");
+                            // Check if cursor is in model area (75x100)
+                            let model_half_w = 37; // 75 / 2
+                            let model_half_h = 50; // 100 / 2
+                            let in_model = cursor.x >= cx - model_half_w
+                                && cursor.x <= cx + model_half_w
+                                && cursor.y >= cy - model_half_h
+                                && cursor.y <= cy + model_half_h;
+
+                            // Check if cursor is on any button
+                            let dx = cursor.x - cx;
+                            let dy = cursor.y - cy;
+                            let on_button = button_positions.iter().any(|&(bx, by)| {
+                                let dist_sq = (dx - bx).pow(2) + (dy - by).pow(2);
+                                dist_sq <= button_hit_radius.pow(2)
+                            });
+
+                            let should_show = in_model || on_button;
+
+                            if should_show {
+                                // Cursor is in interaction area
+                                leave_time = None; // Reset debounce timer
+                                if !is_hovering {
+                                    is_hovering = true;
+                                    let _ = window_set_click_through_pub(&window, false);
+                                    let _ = app.emit("pet-hover-start", ());
+                                    log::debug!("Cursor in model or on button (model={}, button={})", in_model, on_button);
+                                }
+                            } else if is_hovering {
+                                // Cursor left interaction area, start or check debounce
+                                if leave_time.is_none() {
+                                    leave_time = Some(Instant::now());
+                                    log::debug!("Cursor left interaction area, starting debounce");
+                                } else if let Some(lt) = leave_time {
+                                    if lt.elapsed() >= hide_delay {
+                                        // Debounce period elapsed, hide menu
+                                        is_hovering = false;
+                                        leave_time = None;
+                                        let _ = window_set_click_through_pub(&window, true);
+                                        let _ = app.emit("pet-hover-end", ());
+                                        log::debug!("Debounce elapsed, hiding menu");
+                                    }
+                                }
                             }
                         }
                     }
