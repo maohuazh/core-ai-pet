@@ -7,7 +7,7 @@
 - **WHEN** 应用启动并指定模型路径
 - **THEN** 系统 SHALL 使用 pixi-live2d-display 加载 .model3.json 文件
 - **THEN** 模型 SHALL 渲染在窗口的中心位置
-- **THEN** 模型 SHALL 自动缩放以适应 400x400 的窗口
+- **THEN** 模型 SHALL 自动缩放以适应 240x240 的渲染区域，缩放因子为 0.75
 
 #### Scenario: Model loading progress
 - **WHEN** 模型正在加载中
