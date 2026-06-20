@@ -7,10 +7,8 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import Live2DCanvas from "./components/Live2DCanvas.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
-import { petStore } from "./core/model/PetStore";
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
 const showMenu = ref(false);
@@ -30,31 +28,19 @@ const onMouseLeave = () => {
   }, 200);
 };
 
+const actionLabels: Record<string, string> = {
+  task: "任务",
+  message: "消息",
+  jira: "Jira",
+  email: "邮件",
+  agent: "Agent",
+  settings: "设置",
+};
+
 const handleMenuAction = async (action: string) => {
   console.log("Menu action:", action);
-  const appWindow = getCurrentWindow();
-
-  switch (action) {
-    case "chat":
-      alert("聊天功能即将推出");
-      break;
-    case "settings":
-      alert("设置功能即将推出");
-      break;
-    case "switchModel":
-      petStore.switchToNextModel();
-      console.log(`Switched to model: ${petStore.currentModel.value.name}`);
-      break;
-    case "menu":
-      alert("菜单功能即将推出");
-      break;
-    case "minimize":
-      await appWindow.minimize();
-      break;
-    case "close":
-      await appWindow.close();
-      break;
-  }
+  const label = actionLabels[action] ?? action;
+  alert(`${label}功能即将推出`);
 };
 </script>
 

@@ -1,19 +1,21 @@
 <template>
   <div class="hover-menu">
-    <button
+    <div
       v-for="(item, index) in menuItems"
       :key="item.action"
-      class="menu-button"
-      :style="getButtonStyle(index)"
+      class="menu-item"
+      :style="getItemStyle(index)"
       @click="handleClick(item.action)"
       @mouseenter="hoveredButton = item.action"
       @mouseleave="hoveredButton = null"
     >
-      <span class="icon">{{ item.icon }}</span>
+      <button class="menu-button" :style="{ animationDelay: `${index * 0.05}s` }">
+        <span class="icon">{{ item.icon }}</span>
+      </button>
       <span v-if="hoveredButton === item.action" class="tooltip">
         {{ item.label }}
       </span>
-    </button>
+    </div>
   </div>
 </template>
 
@@ -31,30 +33,28 @@ const props = defineProps<{
 }>();
 
 const menuItems: MenuItem[] = [
-  { action: "chat", icon: "💬", label: "聊天" },
+  { action: "task", icon: "📋", label: "任务" },
+  { action: "message", icon: "💬", label: "消息" },
+  { action: "jira", icon: "🔗", label: "Jira" },
+  { action: "email", icon: "📧", label: "邮件" },
+  { action: "agent", icon: "🤖", label: "Agent" },
   { action: "settings", icon: "⚙️", label: "设置" },
-  { action: "switchModel", icon: "🔄", label: "切换模型" },
-  { action: "menu", icon: "☰", label: "菜单" },
-  { action: "minimize", icon: "🔽", label: "最小化" },
-  { action: "close", icon: "❌", label: "关闭" },
 ];
 
 const hoveredButton = ref<string | null>(null);
 
-const getButtonStyle = (index: number) => {
-  const radius = 80;
+const getItemStyle = (index: number) => {
+  const radius = 100;
   const angle = (index / menuItems.length) * 2 * Math.PI - Math.PI / 2;
   const x = Math.cos(angle) * radius;
   const y = Math.sin(angle) * radius;
 
   return {
     transform: `translate(${x}px, ${y}px)`,
-    transitionDelay: `${index * 0.05}s`,
   };
 };
 
 const handleClick = async (action: string) => {
-  console.log("Button clicked:", action);
   await props.onAction(action);
 };
 </script>
@@ -70,28 +70,33 @@ const handleClick = async (action: string) => {
   z-index: 10;
 }
 
-.menu-button {
+.menu-item {
   position: absolute;
-  width: 40px;
-  height: 40px;
+  cursor: pointer;
+  pointer-events: auto;
+  margin-left: -22px;
+  margin-top: -22px;
+}
+
+.menu-button {
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid white;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  pointer-events: auto;
-  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
   animation: popIn 0.3s ease-out forwards;
-  transform-origin: center;
-  margin-left: -20px;
-  margin-top: -20px;
+  animation-delay: 0s;
 }
 
 .menu-button:hover {
-  transform: scale(1.2) translate(var(--x, 0), var(--y, 0));
-  background: rgba(100, 150, 255, 0.8);
+  transform: scale(1.25);
+  background: rgba(80, 130, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 @keyframes popIn {
@@ -107,20 +112,21 @@ const handleClick = async (action: string) => {
 
 .icon {
   font-size: 20px;
-  color: white;
+  line-height: 1;
 }
 
 .tooltip {
   position: absolute;
-  bottom: -30px;
+  bottom: -28px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   color: white;
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 4px;
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
+  z-index: 11;
 }
 </style>
