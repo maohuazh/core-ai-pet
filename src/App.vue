@@ -1,6 +1,7 @@
 <template>
   <div class="pet-container" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
     <Live2DCanvas ref="canvasRef" />
+    <WindowCloseButton v-if="showMenu" />
     <PetHoverMenu v-if="showMenu" :on-action="handleMenuAction" />
   </div>
 </template>
@@ -8,6 +9,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import Live2DCanvas from "./components/Live2DCanvas.vue";
+import WindowCloseButton from "./components/WindowCloseButton.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
