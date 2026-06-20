@@ -12,8 +12,8 @@
     "windows": [
       {
         "title": "Core AI Pet",
-        "width": 400,
-        "height": 400,
+        "width": 240,
+        "height": 240,
         "resizable": false,
         "decorations": false,
         "transparent": true,

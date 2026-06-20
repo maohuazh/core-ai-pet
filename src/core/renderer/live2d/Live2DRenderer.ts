@@ -37,8 +37,8 @@ export class Live2DRenderer implements IRenderer {
 
     this.app = new Application({
       view: this.canvas,
-      width: 400,
-      height: 400,
+      width: 240,
+      height: 240,
       backgroundAlpha: 0,
       antialias: true,
     });
@@ -94,7 +94,7 @@ export class Live2DRenderer implements IRenderer {
 
       const scaleX = targetWidth / modelWidth;
       const scaleY = targetHeight / modelHeight;
-      const scale = Math.min(scaleX, scaleY) * 0.9;
+      const scale = Math.min(scaleX, scaleY) * 0.5;
 
       this.model.scale.set(scale);
       this.model.anchor.set(0.5, 0.5);

@@ -44,7 +44,7 @@ const menuItems: MenuItem[] = [
 const hoveredButton = ref<string | null>(null);
 
 const getItemStyle = (index: number) => {
-  const radius = 100;
+  const radius = 80;
   const angle = (index / menuItems.length) * 2 * Math.PI - Math.PI / 2;
   const x = Math.cos(angle) * radius;
   const y = Math.sin(angle) * radius;
@@ -74,13 +74,13 @@ const handleClick = async (action: string) => {
   position: absolute;
   cursor: pointer;
   pointer-events: auto;
-  margin-left: -22px;
-  margin-top: -22px;
+  margin-left: -17px;
+  margin-top: -17px;
 }
 
 .menu-button {
-  width: 44px;
-  height: 44px;
+  width: 35px;
+  height: 35px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -111,7 +111,7 @@ const handleClick = async (action: string) => {
 }
 
 .icon {
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1;
 }
 
