@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// 数据库管理器
 pub struct Database {
-    conn: Mutex<Connection>,
+    pub conn: Mutex<Connection>,
 }
 
 /// 配置条目
@@ -99,10 +99,173 @@ impl Database {
                 config TEXT,
                 last_active INTEGER
             );
+
+            -- Jira 连接
+            CREATE TABLE IF NOT EXISTS jira_connections (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                url TEXT NOT NULL,
+                email TEXT NOT NULL,
+                api_token TEXT,
+                status TEXT NOT NULL DEFAULT 'connected' CHECK (status IN ('connected', 'expired', 'error')),
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                last_sync_at TEXT
+            );
+
+            -- 邮箱连接
+            CREATE TABLE IF NOT EXISTS email_accounts (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'imap' CHECK (provider IN ('gmail', 'outlook', 'imap', 'other')),
+                auth_type TEXT NOT NULL DEFAULT 'oauth2' CHECK (auth_type IN ('oauth2', 'app_password', 'imap_password')),
+                auth_token TEXT,
+                imap_host TEXT,
+                imap_port INTEGER,
+                smtp_host TEXT,
+                smtp_port INTEGER,
+                status TEXT NOT NULL DEFAULT 'connected' CHECK (status IN ('connected', 'expired', 'error')),
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                last_sync_at TEXT
+            );
+
+            -- 聊天工具连接
+            CREATE TABLE IF NOT EXISTS chat_platforms (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                icon TEXT,
+                status TEXT NOT NULL DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'error')),
+                enabled INTEGER NOT NULL DEFAULT 0,
+                account_name TEXT,
+                auth_token TEXT,
+                connected_at TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            -- 模型注册
+            CREATE TABLE IF NOT EXISTS models (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'live2d' CHECK (type IN ('live2d', 'sprite')),
+                path TEXT NOT NULL,
+                manifest_path TEXT,
+                model3_path TEXT,
+                thumbnail TEXT,
+                source TEXT NOT NULL DEFAULT 'builtin' CHECK (source IN ('builtin', 'cdn', 'custom')),
+                status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+                author TEXT,
+                version TEXT,
+                description TEXT,
+                license TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            -- 模型动作/表情映射
+            CREATE TABLE IF NOT EXISTS model_action_mappings (
+                id TEXT PRIMARY KEY,
+                model_id TEXT NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+                trigger_key TEXT NOT NULL CHECK (trigger_key IN ('daily_1', 'daily_2', 'daily_3', 'new_message', 'new_task', 'new_email', 'task_in_progress', 'task_completed', 'task_approaching_deadline', 'task_overdue')),
+                motion_group TEXT,
+                motion_name TEXT,
+                expression_name TEXT,
+                effect_name TEXT,
+                use_default INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(model_id, trigger_key)
+            );
+
+            -- 应用全局设置（KV 存储）
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            -- 索引
+            CREATE INDEX IF NOT EXISTS idx_jira_enabled ON jira_connections(enabled);
+            CREATE INDEX IF NOT EXISTS idx_jira_status ON jira_connections(status);
+            CREATE INDEX IF NOT EXISTS idx_email_enabled ON email_accounts(enabled);
+            CREATE INDEX IF NOT EXISTS idx_email_status ON email_accounts(status);
+            CREATE INDEX IF NOT EXISTS idx_email_provider ON email_accounts(provider);
+            CREATE INDEX IF NOT EXISTS idx_chat_enabled ON chat_platforms(enabled);
+            CREATE INDEX IF NOT EXISTS idx_chat_status ON chat_platforms(status);
+            CREATE INDEX IF NOT EXISTS idx_models_type ON models(type);
+            CREATE INDEX IF NOT EXISTS idx_models_status ON models(status);
+            CREATE INDEX IF NOT EXISTS idx_models_source ON models(source);
+            CREATE INDEX IF NOT EXISTS idx_action_mapping_model ON model_action_mappings(model_id);
+            CREATE INDEX IF NOT EXISTS idx_action_mapping_trigger ON model_action_mappings(trigger_key);
             ",
         )?;
 
+        // Initialize mock data if tables are empty
+        self.initialize_mock_data()?;
+
         log::info!("Database initialized with all tables");
+        Ok(())
+    }
+
+    /// 初始化 Mock 数据（仅在表为空时插入）
+    fn initialize_mock_data(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+
+        // Check if jira_connections is empty
+        let jira_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM jira_connections",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if jira_count == 0 {
+            conn.execute_batch(
+                "INSERT INTO jira_connections (id, name, url, email, status, enabled, last_sync_at) VALUES
+                ('jira-mock-001', '公司项目管理', 'https://mycompany.atlassian.net', 'zhangsan@mycompany.com', 'connected', 1, '2026-06-20T09:30:00Z'),
+                ('jira-mock-002', '开源项目追踪', 'https://opensource.atlassian.net', 'zhangsan@gmail.com', 'expired', 0, '2026-05-01T14:00:00Z');"
+            )?;
+            log::info!("Initialized Jira mock data");
+        }
+
+        // Check if email_accounts is empty
+        let email_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM email_accounts",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if email_count == 0 {
+            conn.execute_batch(
+                "INSERT INTO email_accounts (id, name, email, provider, status, enabled, last_sync_at) VALUES
+                ('email-mock-001', '工作邮箱', 'zhangsan@mycompany.com', 'outlook', 'connected', 1, '2026-06-20T10:00:00Z'),
+                ('email-mock-002', '个人邮箱', 'zhangsan@gmail.com', 'gmail', 'connected', 1, '2026-06-20T09:45:00Z');"
+            )?;
+            log::info!("Initialized Email mock data");
+        }
+
+        // Check if chat_platforms is empty
+        let chat_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM chat_platforms",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if chat_count == 0 {
+            conn.execute_batch(
+                "INSERT INTO chat_platforms (id, name, icon, status, enabled, account_name, connected_at) VALUES
+                ('chat-wechat', 'WeChat', '💬', 'connected', 1, '张三', '2026-05-15T10:30:00Z'),
+                ('chat-slack', 'Slack', '💼', 'connected', 1, 'zhangsan@company.com', '2026-04-20T14:00:00Z'),
+                ('chat-teams', 'Microsoft Teams', '👥', 'disconnected', 0, NULL, NULL),
+                ('chat-discord', 'Discord', '🎮', 'disconnected', 0, NULL, NULL);"
+            )?;
+            log::info!("Initialized Chat mock data");
+        }
+
         Ok(())
     }
 

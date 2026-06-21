@@ -1,5 +1,6 @@
 <template>
-  <div class="pet-container">
+  <SettingsPanel v-if="isSettingsRoute" />
+  <div v-else class="pet-container">
     <Live2DCanvas ref="canvasRef" />
     <WindowCloseButton v-if="showMenu" />
     <PetHoverMenu v-if="showMenu" :on-action="handleMenuAction" />
@@ -7,11 +8,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import Live2DCanvas from "./components/Live2DCanvas.vue";
 import WindowCloseButton from "./components/WindowCloseButton.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
+import SettingsPanel from "./components/settings/SettingsPanel.vue";
+import { invoke } from "@tauri-apps/api/core";
+
+// Check if current route is /settings
+const isSettingsRoute = computed(() => {
+  return window.location.pathname === "/settings";
+});
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
 const showMenu = ref(false);
@@ -21,20 +29,23 @@ let unlistenEnd: UnlistenFn | null = null;
 let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(async () => {
-  // Listen for cursor monitor events from Rust backend
-  unlistenStart = await listen("pet-hover-start", () => {
-    if (hideTimeout) {
-      clearTimeout(hideTimeout);
-      hideTimeout = null;
-    }
-    showMenu.value = true;
-  });
+  // Only set up pet window listeners if not in settings route
+  if (!isSettingsRoute.value) {
+    // Listen for cursor monitor events from Rust backend
+    unlistenStart = await listen("pet-hover-start", () => {
+      if (hideTimeout) {
+        clearTimeout(hideTimeout);
+        hideTimeout = null;
+      }
+      showMenu.value = true;
+    });
 
-  unlistenEnd = await listen("pet-hover-end", () => {
-    hideTimeout = setTimeout(() => {
-      showMenu.value = false;
-    }, 200);
-  });
+    unlistenEnd = await listen("pet-hover-end", () => {
+      hideTimeout = setTimeout(() => {
+        showMenu.value = false;
+      }, 200);
+    });
+  }
 });
 
 onUnmounted(() => {
@@ -54,6 +65,13 @@ const actionLabels: Record<string, string> = {
 
 const handleMenuAction = async (action: string) => {
   console.log("Menu action:", action);
+
+  if (action === "settings") {
+    // Open settings window
+    await invoke("open_settings_window");
+    return;
+  }
+
   const label = actionLabels[action] ?? action;
   alert(`${label}功能即将推出`);
 };
