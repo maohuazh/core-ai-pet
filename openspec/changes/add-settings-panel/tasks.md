@@ -45,60 +45,60 @@
 
 ## 6. Jira 连接模块
 
-- [ ] 6.1 创建 `src/components/settings/modules/JiraModule.vue`
-- [ ] 6.2 实现 Jira 连接列表展示（调用 get_jira_connections）
-- [ ] 6.3 实现启用/禁用开关功能（调用 toggle_jira_connection）
-- [ ] 6.4 实现删除功能（调用 delete_jira_connection + ConfirmDialog）
-- [ ] 6.5 实现编辑名称功能（调用 update_jira_connection）
-- [ ] 6.6 实现"+ 添加"按钮（显示"功能开发中"Toast）
-- [ ] 6.7 验证：Mock 数据正确显示，所有操作持久化到 SQLite
+- [x] 6.1 创建 `src/components/settings/modules/JiraModule.vue`
+- [x] 6.2 实现 Jira 连接列表展示（调用 get_jira_connections）
+- [x] 6.3 实现启用/禁用开关功能（调用 toggle_jira_connection）
+- [x] 6.4 实现删除功能（调用 delete_jira_connection + ConfirmDialog）
+- [x] 6.5 实现编辑名称功能（调用 update_jira_connection）
+- [x] 6.6 实现"+ 添加"按钮（显示"功能开发中"Toast）
+- [x] 6.7 验证：Mock 数据正确显示，所有操作持久化到 SQLite
 
 ## 7. Email 连接模块
 
-- [ ] 7.1 创建 `src/components/settings/modules/EmailModule.vue`
-- [ ] 7.2 复用 ConnectionCard 组件，适配 Email 数据模型
-- [ ] 7.3 实现 Email 列表展示（调用 get_email_accounts）
-- [ ] 7.4 实现启用/禁用、删除、编辑功能
-- [ ] 7.5 验证：Mock 数据正确显示，所有操作持久化
+- [x] 7.1 创建 `src/components/settings/modules/EmailModule.vue`
+- [x] 7.2 复用 ConnectionCard 组件，适配 Email 数据模型
+- [x] 7.3 实现 Email 列表展示（调用 get_email_accounts）
+- [x] 7.4 实现启用/禁用、删除、编辑功能
+- [x] 7.5 验证：Mock 数据正确显示，所有操作持久化
 
 ## 8. Chat 连接模块
 
-- [ ] 8.1 创建 `src/components/settings/modules/ChatModule.vue`
-- [ ] 8.2 复用 ConnectionCard 组件，适配 Chat 数据模型
-- [ ] 8.3 实现 Chat 平台列表展示（调用 get_chat_platforms）
-- [ ] 8.4 实现启用/禁用、断开连接功能
-- [ ] 8.5 验证：Mock 数据正确显示，所有操作持久化
+- [x] 8.1 创建 `src/components/settings/modules/ChatModule.vue`
+- [x] 8.2 复用 ConnectionCard 组件，适配 Chat 数据模型
+- [x] 8.3 实现 Chat 平台列表展示（调用 get_chat_platforms）
+- [x] 8.4 实现启用/禁用、断开连接功能
+- [x] 8.5 验证：Mock 数据正确显示，所有操作持久化
 
 ## 9. 模型配置模块
 
-- [ ] 9.1 创建 `src/components/settings/modules/ModelConfigModule.vue`
-- [ ] 9.2 实现模型列表展示（调用 get_models）
-- [ ] 9.3 实现模型切换功能（调用 set_active_model + 更新 PetStore）
-- [ ] 9.4 实现"+ 导入"按钮（打开文件选择对话框）
-- [ ] 9.5 实现"🗑 删除"按钮（调用 delete_model + ConfirmDialog）
-- [ ] 9.6 实现"⚙ 动作映射"按钮（跳转到动作映射面板）
-- [ ] 9.7 实现活跃模型标识（左侧指示条 + "✓ 当前模型"按钮）
-- [ ] 9.8 验证：模型列表正确显示，切换功能正常
+- [x] 9.1 创建 `src/components/settings/modules/ModelConfigModule.vue`
+- [x] 9.2 实现模型列表展示（调用 get_models）
+- [x] 9.3 实现模型切换功能（调用 set_active_model + 更新 PetStore）
+- [x] 9.4 实现"+ 导入"按钮（打开文件选择对话框）
+- [x] 9.5 实现"🗑 删除"按钮（调用 delete_model + ConfirmDialog）
+- [x] 9.6 实现"⚙ 动作映射"按钮（跳转到动作映射面板）
+- [x] 9.7 实现活跃模型标识（左侧指示条 + "✓ 当前模型"按钮）
+- [x] 9.8 验证：模型列表正确显示，切换功能正常
 
 ## 10. HoverMenu 集成
 
-- [ ] 10.1 修改 `src/components/PetHoverMenu.vue`：确保设置按钮触发 action "settings"
-- [ ] 10.2 修改 `src/App.vue`：在 handleMenuAction 中处理 "settings" action，调用 invoke("open_settings_window")
-- [ ] 10.3 验证：从 HoverMenu 点击设置按钮能正确打开设置面板
+- [x] 10.1 修改 `src/components/PetHoverMenu.vue`：确保设置按钮触发 action "settings"
+- [x] 10.2 修改 `src/App.vue`：在 handleMenuAction 中处理 "settings" action，调用 invoke("open_settings_window")
+- [x] 10.3 验证：从 HoverMenu 点击设置按钮能正确打开设置面板
 
 ## 11. UI 细节打磨
 
-- [ ] 11.1 实现模块切换淡入淡出过渡动画（250ms ease-in-out）
-- [ ] 11.2 实现卡片 hover 效果（背景色变化 + 阴影）
-- [ ] 11.3 实现按钮 hover/active 状态样式
-- [ ] 11.4 实现导航项选中态样式（左侧 3px 指示条）
-- [ ] 11.5 响应式布局适配：最小尺寸 560x480 下不溢出
-- [ ] 11.6 实现空状态 UI（无连接时的友好提示）
+- [x] 11.1 实现模块切换淡入淡出过渡动画（250ms ease-in-out）
+- [x] 11.2 实现卡片 hover 效果（背景色变化 + 阴影）
+- [x] 11.3 实现按钮 hover/active 状态样式
+- [x] 11.4 实现导航项选中态样式（左侧 3px 指示条）
+- [x] 11.5 响应式布局适配：最小尺寸 560x480 下不溢出
+- [x] 11.6 实现空状态 UI（无连接时的友好提示）
 
 ## 12. 集成测试
 
-- [ ] 12.1 端到端测试：打开设置 → 切换模块 → 操作数据 → 重启验证持久化
-- [ ] 12.2 测试窗口关闭/重新打开行为
-- [ ] 12.3 测试模型切换后桌面宠物是否正确更新
-- [ ] 12.4 测试所有 CRUD 操作的错误处理
-- [ ] 12.5 修复测试中发现的问题
+- [x] 12.1 端到端测试：打开设置 → 切换模块 → 操作数据 → 重启验证持久化
+- [x] 12.2 测试窗口关闭/重新打开行为
+- [x] 12.3 测试模型切换后桌面宠物是否正确更新
+- [x] 12.4 测试所有 CRUD 操作的错误处理
+- [x] 12.5 修复测试中发现的问题
