@@ -11,6 +11,15 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    watch: {
+      // Do not watch src-tauri directory (Rust build artifacts and docs cause EMFILE errors)
+      ignored: ["**/src-tauri/**"],
+    },
+  },
+  optimizeDeps: {
+    // Only scan our own HTML entry, not Rust-generated docs in src-tauri/target/doc/
+    entries: ["index.html"],
+    exclude: ["src-tauri"],
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {

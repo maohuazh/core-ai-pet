@@ -206,15 +206,14 @@ impl Database {
         )?;
 
         // Initialize mock data if tables are empty
-        self.initialize_mock_data()?;
+        Self::initialize_mock_data(&conn)?;
 
         log::info!("Database initialized with all tables");
         Ok(())
     }
 
     /// 初始化 Mock 数据（仅在表为空时插入）
-    fn initialize_mock_data(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+    fn initialize_mock_data(conn: &Connection) -> Result<()> {
 
         // Check if jira_connections is empty
         let jira_count: i64 = conn.query_row(
