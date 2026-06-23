@@ -1,15 +1,15 @@
 <template>
-  <div class="settings-titlebar" @mousedown="startDrag">
-    <div class="titlebar-drag-region">
+  <div class="settings-titlebar">
+    <div class="titlebar-drag-region" @mousedown="startDrag">
       <span class="titlebar-title">⚙️ 设置</span>
     </div>
     <div class="titlebar-buttons">
-      <button class="titlebar-btn minimize-btn" @click.stop="minimize" title="最小化">
+      <button class="titlebar-btn minimize-btn" @click="minimize" title="最小化">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <rect x="2" y="5.5" width="8" height="1" fill="currentColor" />
         </svg>
       </button>
-      <button class="titlebar-btn close-btn" @click.stop="close" title="关闭">
+      <button class="titlebar-btn close-btn" @click="close" title="关闭">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
         </svg>
@@ -56,7 +56,7 @@ const close = async () => {
   display: flex;
   align-items: center;
   height: 100%;
-  -webkit-app-region: drag;
+  cursor: move;
 }
 
 .titlebar-title {
@@ -64,6 +64,7 @@ const close = async () => {
   font-weight: 600;
   color: #1f2937;
   margin-left: 4px;
+  pointer-events: none;
 }
 
 .titlebar-buttons {
