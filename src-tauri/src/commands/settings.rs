@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State, WebviewWindowBuilder};
+use tauri::{
+    image::Image, AppHandle, Manager, State, WebviewWindowBuilder,
+};
 
 use crate::infrastructure::storage::Database;
 
@@ -534,19 +536,50 @@ pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
     }
 
     // Create new settings window
-    let window = WebviewWindowBuilder::new(
-        &app,
-        "settings",
-        tauri::WebviewUrl::App("/settings".into()),
-    )
-    .title("CoreAIpet - 设置")
-    .inner_size(680.0, 720.0)
-    .min_inner_size(560.0, 480.0)
-    .decorations(false)
-    .transparent(true)
-    .always_on_top(false)
-    .resizable(true)
-    .build()
+    let window = if let Some(icon) = load_app_icon(&app) {
+        WebviewWindowBuilder::new(
+            &app,
+            "settings",
+            tauri::WebviewUrl::App("/settings".into()),
+        )
+        .title("CoreAIpet - 设置")
+        .inner_size(680.0, 720.0)
+        .min_inner_size(560.0, 480.0)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(false)
+        .resizable(true)
+        .icon(icon)
+        .unwrap_or_else(|_| {
+            WebviewWindowBuilder::new(
+                &app,
+                "settings",
+                tauri::WebviewUrl::App("/settings".into()),
+            )
+            .title("CoreAIpet - 设置")
+            .inner_size(680.0, 720.0)
+            .min_inner_size(560.0, 480.0)
+            .decorations(false)
+            .transparent(true)
+            .always_on_top(false)
+            .resizable(true)
+        })
+        .build()
+    } else {
+        WebviewWindowBuilder::new(
+            &app,
+            "settings",
+            tauri::WebviewUrl::App("/settings".into()),
+        )
+        .title("CoreAIpet - 设置")
+        .inner_size(680.0, 720.0)
+        .min_inner_size(560.0, 480.0)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(false)
+        .resizable(true)
+        .build()
+    }
     .map_err(|e| e.to_string())?;
 
     // Set up close event handler to hide instead of destroy
@@ -563,4 +596,31 @@ pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
     });
 
     Ok(())
+}
+
+/// Load the app icon for use as window/taskbar icon.
+fn load_app_icon(app: &AppHandle) -> Option<Image<'static>> {
+    // Try resource dir (bundled app)
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        for name in &["icons/logo.png", "icons/logo_256x256.png", "icons/logo_128x128.png"] {
+            let path = resource_dir.join(name);
+            if path.exists() {
+                if let Ok(icon) = Image::from_path(&path) {
+                    return Some(icon.to_owned());
+                }
+            }
+        }
+    }
+
+    // Try current working directory (dev mode)
+    for name in &["icons/logo.png", "icons/logo_256x256.png", "icons/logo_128x128.png"] {
+        let path = std::path::Path::new(name);
+        if path.exists() {
+            if let Ok(icon) = Image::from_path(path) {
+                return Some(icon.to_owned());
+            }
+        }
+    }
+
+    None
 }
