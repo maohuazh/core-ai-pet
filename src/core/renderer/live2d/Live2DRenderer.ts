@@ -1,4 +1,5 @@
 import { Application, Ticker } from "pixi.js";
+import { Live2DModel } from "pixi-live2d-display/cubism4";
 
 export interface MotionGroup {
   name: string;
@@ -20,12 +21,16 @@ export interface IRenderer {
 }
 
 export class Live2DRenderer implements IRenderer {
-  private canvas: HTMLCanvasElement;
+  private container: HTMLElement;
   private app: Application | null = null;
   private model: any = null;
+  private width: number;
+  private height: number;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
+  constructor(container: HTMLElement, width: number, height: number) {
+    this.container = container;
+    this.width = width;
+    this.height = height;
   }
 
   async init(): Promise<void> {
@@ -36,18 +41,24 @@ export class Live2DRenderer implements IRenderer {
     }
 
     this.app = new Application({
-      view: this.canvas,
-      width: 240,
-      height: 240,
+      width: this.width,
+      height: this.height,
       backgroundAlpha: 0,
       antialias: true,
     });
 
-    const { Live2DModel } = await import("pixi-live2d-display");
+    // Append PixiJS canvas to container
+    if (this.app.view) {
+      this.app.view.style.width = "100%";
+      this.app.view.style.height = "100%";
+      this.container.appendChild(this.app.view);
+    }
+
+    // Register Ticker for Live2D model animation
     (Live2DModel as any).registerTicker(Ticker);
     console.log("Live2DModel Ticker registered");
 
-    console.log("Live2DRenderer initialized, canvas size:", this.canvas.width, "x", this.canvas.height);
+    console.log("Live2DRenderer initialized, canvas size:", this.width, "x", this.height);
   }
 
   async loadModel(modelPath: string): Promise<void> {
@@ -68,10 +79,10 @@ export class Live2DRenderer implements IRenderer {
     console.log("Loading Live2D model from:", modelPath);
 
     try {
-      const module = await import("pixi-live2d-display");
-      const { Live2DModel } = module;
+      console.log("Live2DModel class:", Live2DModel);
 
       this.model = await Live2DModel.from(modelPath, { autoInteract: false });
+      console.log("Model instance created");
 
       console.log("Model loaded:", this.model);
       console.log("Model dimensions:", this.model.width, "x", this.model.height);
@@ -110,6 +121,11 @@ export class Live2DRenderer implements IRenderer {
 
       app.stage.addChild(this.model);
       console.log("Model added to stage");
+      console.log("Stage children count:", app.stage.children.length);
+      console.log("Model visible:", this.model.visible);
+      console.log("Model alpha:", this.model.alpha);
+      console.log("Model scale:", this.model.scale.x, this.model.scale.y);
+      console.log("Model position:", this.model.x, this.model.y);
 
       // Auto-play idle motion after model loads
       setTimeout(async () => {
@@ -217,6 +233,10 @@ export class Live2DRenderer implements IRenderer {
 
   destroy(): void {
     if (this.app) {
+      // Remove canvas from DOM
+      if (this.app.view && this.app.view.parentNode) {
+        this.app.view.parentNode.removeChild(this.app.view);
+      }
       this.app.destroy(true, { children: true, texture: true, baseTexture: true });
       this.app = null;
     }

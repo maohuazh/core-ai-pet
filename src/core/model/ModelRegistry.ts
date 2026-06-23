@@ -70,4 +70,4 @@ modelRegistry.register({
   cubismVersion: 4,
 });
 
-modelRegistry.setDefault("hiyori");
+modelRegistry.setDefault("haru");

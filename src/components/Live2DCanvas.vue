@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvasEl" class="live2d-canvas" @mousedown="onMouseDown"></canvas>
+  <div ref="containerEl" class="live2d-container" @mousedown="onMouseDown"></div>
 </template>
 
 <script setup lang="ts">
@@ -9,7 +9,7 @@ import { Live2DRenderer } from "../core/renderer/live2d/Live2DRenderer";
 import { petStore } from "../core/model/PetStore";
 import { createAvatar, type Avatar } from "../core/avatar";
 
-const canvasEl = ref<HTMLCanvasElement | null>(null);
+const containerEl = ref<HTMLDivElement | null>(null);
 const renderer = ref<Live2DRenderer | null>(null);
 const avatar = ref<Avatar | null>(null);
 
@@ -69,16 +69,20 @@ onMounted(async () => {
     console.warn("Failed to restore window position:", error);
   }
 
-  if (!canvasEl.value) {
-    console.error("Canvas element not available");
+  if (!containerEl.value) {
+    console.error("Container element not available");
     return;
   }
 
-  renderer.value = new Live2DRenderer(canvasEl.value);
+  // Read container dimensions
+  const width = containerEl.value.clientWidth || 200;
+  const height = containerEl.value.clientHeight || 200;
+
+  renderer.value = new Live2DRenderer(containerEl.value, width, height);
 
   try {
     await renderer.value.init();
-    console.log("Renderer initialized");
+    console.log("Renderer initialized, size:", width, "x", height);
   } catch (error) {
     console.error("Failed to initialize renderer:", error);
     return;
@@ -110,14 +114,20 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.live2d-canvas {
+.live2d-container {
   width: 100%;
   height: 100%;
-  display: block;
   cursor: grab;
+  overflow: hidden;
 }
 
-.live2d-canvas:active {
+.live2d-container:active {
   cursor: grabbing;
+}
+
+.live2d-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 </style>
