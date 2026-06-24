@@ -15,6 +15,8 @@ import WindowCloseButton from "./components/WindowCloseButton.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
 import SettingsPanel from "./components/settings/SettingsPanel.vue";
 import { invoke } from "@tauri-apps/api/core";
+import { modelRegistry } from "./core/model/ModelRegistry";
+import { petStore } from "./core/model/PetStore";
 
 // Check if current route is /settings
 const isSettingsRoute = computed(() => {
@@ -26,11 +28,33 @@ const showMenu = ref(false);
 
 let unlistenStart: UnlistenFn | null = null;
 let unlistenEnd: UnlistenFn | null = null;
+let unlistenModelChanged: UnlistenFn | null = null;
 let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(async () => {
   // Only set up pet window listeners if not in settings route
   if (!isSettingsRoute.value) {
+    // Listen for model change events from settings window
+    unlistenModelChanged = await listen<{ modelId: string }>("pet-model-changed", (event) => {
+      const model = modelRegistry.getById(event.payload.modelId);
+      if (model) {
+        petStore.setCurrentModel(model);
+      }
+    });
+
+    // Sync active model from DB on startup
+    try {
+      const activeId = await invoke<string | null>("get_active_model_id");
+      if (activeId) {
+        const model = modelRegistry.getById(activeId);
+        if (model) {
+          petStore.setCurrentModel(model);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to sync active model from DB:", e);
+    }
+
     // Listen for cursor monitor events from Rust backend
     unlistenStart = await listen("pet-hover-start", () => {
       if (hideTimeout) {
@@ -51,6 +75,7 @@ onMounted(async () => {
 onUnmounted(() => {
   unlistenStart?.();
   unlistenEnd?.();
+  unlistenModelChanged?.();
   if (hideTimeout) clearTimeout(hideTimeout);
 });
 

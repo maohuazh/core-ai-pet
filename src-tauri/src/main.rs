@@ -10,7 +10,7 @@ use commands::event::{emit_event, subscribe_event};
 use commands::plugin::{plugin_disable, plugin_enable, plugin_list};
 use commands::settings::{
     delete_action_mapping, delete_chat_platform, delete_email_account, delete_jira_connection,
-    delete_model, disconnect_chat_platform, get_action_mappings, get_chat_platforms,
+    delete_model, disconnect_chat_platform, get_action_mappings, get_active_model_id, get_chat_platforms,
     get_email_accounts, get_jira_connections, get_models, open_settings_window, save_action_mapping,
     set_active_model, toggle_chat_platform, toggle_email_account, toggle_jira_connection,
     update_email_account, update_jira_connection, update_model,
@@ -101,6 +101,7 @@ fn main() {
             // Settings - Model commands
             get_models,
             set_active_model,
+            get_active_model_id,
             delete_model,
             update_model,
             // Settings - Action Mapping commands

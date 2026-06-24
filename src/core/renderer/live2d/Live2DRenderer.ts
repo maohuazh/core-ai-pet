@@ -49,9 +49,9 @@ export class Live2DRenderer implements IRenderer {
 
     // Append PixiJS canvas to container
     if (this.app.view) {
-      this.app.view.style.width = "100%";
-      this.app.view.style.height = "100%";
-      this.container.appendChild(this.app.view);
+      (this.app.view as unknown as HTMLElement).style.width = "100%";
+      (this.app.view as unknown as HTMLElement).style.height = "100%";
+      this.container.appendChild(this.app.view as unknown as Node);
     }
 
     // Register Ticker for Live2D model animation

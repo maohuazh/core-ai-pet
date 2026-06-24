@@ -27,7 +27,7 @@ const navItems = [
   { key: 'jira' as SettingsModule, icon: '📋', label: 'Jira' },
   { key: 'email' as SettingsModule, icon: '📧', label: '邮箱' },
   { key: 'chat' as SettingsModule, icon: '💬', label: '聊天' },
-  { key: 'model' as SettingsModule, icon: '🎭', label: '模型' },
+  { key: 'model' as SettingsModule, icon: '🐾', label: '宠物' },
 ];
 </script>
 

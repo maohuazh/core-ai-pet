@@ -291,6 +291,27 @@ impl Database {
             log::info!("Initialized Chat mock data");
         }
 
+        // Check if models is empty — seed builtin pet models
+        let models_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM models",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if models_count == 0 {
+            conn.execute_batch(
+                "INSERT INTO models (id, name, type, path, manifest_path, source, status, author, version, description, sort_order) VALUES
+                ('haru', 'Haru', 'live2d', 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json', NULL, 'cdn', 'active', 'Live2D', '1.0', 'Original CDN model, anime girl with idle and happy motions', 1),
+                ('hiyori', 'Hiyori', 'live2d', './models/Hiyori/Hiyori.model3.json', NULL, 'builtin', 'inactive', 'Live2D Inc.', '1.0', 'Live2D official Cubism 4 sample, rich idle motions', 2),
+                ('mao', 'Mao', 'live2d', './models/Mao/Mao.model3.json', NULL, 'builtin', 'inactive', 'Live2D Inc.', '1.0', 'Live2D official Cubism 4 sample, 8 expressions + 6 tap motions', 3),
+                ('natori', 'Natori', 'live2d', './models/Natori/Natori.model3.json', NULL, 'builtin', 'inactive', 'Live2D Inc.', '1.0', 'Live2D official Cubism 4 sample, 11 expressions + 5 tap motions', 4),
+                ('pixel-cat', 'PixelCat', 'sprite', './models/pixel-cat/manifest.json', './models/pixel-cat/manifest.json', 'builtin', 'inactive', NULL, '1.0', 'A pixel art cat with 8-direction frame animations', 5),
+                ('arisa', 'Arisa', 'sprite', './models/arisa/manifest.json', './models/arisa/manifest.json', 'builtin', 'inactive', 'BANDORI', '1.0', 'A pixel art character from BANDORI desktop pet, 9 animation states', 6),
+                ('panda', 'Panda', 'sprite', './models/panda/manifest.json', './models/panda/manifest.json', 'builtin', 'inactive', 'Jason Bai', '1.0', 'A soft, healing panda companion with round eyes, tiny paws, and gentle calming poses.', 7);"
+            )?;
+            log::info!("Initialized models seed data (7 builtin pets)");
+        }
+
         Ok(())
     }
 

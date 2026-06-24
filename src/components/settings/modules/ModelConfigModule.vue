@@ -1,15 +1,15 @@
 <template>
   <div class="module-container">
     <div class="module-header">
-      <h2 class="module-title">模型配置</h2>
+      <h2 class="module-title">宠物配置</h2>
       <button class="add-btn" @click="handleImport">+ 导入</button>
     </div>
     <div class="module-content">
       <EmptyState
         v-if="models.length === 0"
-        title="暂无模型"
-        description="点击导入按钮添加第一个模型"
-        action-label="导入模型"
+        title="暂无宠物"
+        description="点击导入按钮添加第一个宠物"
+        action-label="导入宠物"
         @action="handleImport"
       />
       <div
@@ -46,14 +46,14 @@
             class="action-btn active"
             disabled
           >
-            ✓ 当前模型
+            ✓ 当前宠物
           </button>
           <button
             v-else
             class="action-btn primary"
             @click="handleActivate(model)"
           >
-            ▶ 使用此模型
+            ▶ 使用此宠物
           </button>
           <button class="action-btn secondary" @click="handleActions(model)">
             ⚙ 动作映射
@@ -71,7 +71,7 @@
 
     <ConfirmDialog
       v-model:visible="showDeleteDialog"
-      title="删除模型"
+      title="删除宠物"
       :message="`确定要删除 '${selectedModel?.name}' 吗？此操作不可恢复。`"
       confirm-text="删除"
       confirm-class="danger"
@@ -112,7 +112,7 @@ const handleActivate = async (model: Model) => {
 };
 
 const handleActions = (model: Model) => {
-  alert(`动作映射功能开发中\n模型: ${model.name}`);
+  alert(`动作映射功能开发中\n宠物: ${model.name}`);
 };
 
 const handleMenu = (model: Model) => {
@@ -135,7 +135,7 @@ const handleMenu = (model: Model) => {
 
 const handleDelete = (model: Model) => {
   if (model.status === 'active') {
-    alert('无法删除当前活跃的模型，请先切换到其他模型');
+    alert('无法删除当前活跃的宠物，请先切换到其他宠物');
     return;
   }
   selectedModel.value = model;
@@ -153,7 +153,7 @@ const confirmDelete = async () => {
 };
 
 const handleImport = () => {
-  alert('模型导入功能开发中');
+  alert('宠物导入功能开发中');
 };
 
 onMounted(() => {

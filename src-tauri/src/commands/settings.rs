@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tauri::{
-    image::Image, AppHandle, Manager, State, WebviewWindowBuilder,
+    image::Image, AppHandle, Emitter, Manager, State, WebviewWindowBuilder,
 };
 
 use crate::infrastructure::storage::Database;
@@ -377,6 +377,7 @@ pub async fn get_models(
 
 #[tauri::command]
 pub async fn set_active_model(
+    app: AppHandle,
     db: State<'_, tokio::sync::Mutex<Database>>,
     id: String,
 ) -> Result<(), String> {
@@ -390,11 +391,32 @@ pub async fn set_active_model(
     // Then set the specified model to active
     conn.execute(
         "UPDATE models SET status = 'active', updated_at = datetime('now') WHERE id = ?1",
-        rusqlite::params![id],
+        rusqlite::params![id.clone()],
     )
     .map_err(|e| e.to_string())?;
 
+    // Emit event to notify pet window
+    let _ = app.emit("pet-model-changed", serde_json::json!({ "modelId": id }));
+
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_active_model_id(
+    db: State<'_, tokio::sync::Mutex<Database>>,
+) -> Result<Option<String>, String> {
+    let db = db.lock().await;
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    let result: Option<String> = conn
+        .query_row(
+            "SELECT id FROM models WHERE status = 'active' LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .ok();
+
+    Ok(result)
 }
 
 #[tauri::command]

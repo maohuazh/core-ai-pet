@@ -78,7 +78,7 @@ modelRegistry.register({
   cubismVersion: 4,
 });
 
-modelRegistry.setDefault("panda"); // TEMP: testing sprite model — revert to "haru" after
+modelRegistry.setDefault("haru");
 
 // Sample Sprite models
 modelRegistry.register({
