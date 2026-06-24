@@ -205,10 +205,36 @@ impl Database {
             ",
         )?;
 
+        // Migration: add type and manifest_path columns to models table if they don't exist
+        // (for databases created before these columns were added)
+        Self::run_migrations(&conn)?;
+
         // Initialize mock data if tables are empty
         Self::initialize_mock_data(&conn)?;
 
         log::info!("Database initialized with all tables");
+        Ok(())
+    }
+
+    /// Run migrations for existing databases
+    fn run_migrations(conn: &Connection) -> Result<()> {
+        // Check if 'type' column exists in models table
+        let has_type: bool = conn
+            .prepare("PRAGMA table_info(models)")?
+            .query_map([], |row| {
+                let name: String = row.get(1)?;
+                Ok(name == "type")
+            })?
+            .any(|r| r.unwrap_or(false));
+
+        if !has_type {
+            conn.execute_batch(
+                "ALTER TABLE models ADD COLUMN type TEXT NOT NULL DEFAULT 'live2d';
+                 ALTER TABLE models ADD COLUMN manifest_path TEXT;",
+            )?;
+            log::info!("Migration: added type and manifest_path columns to models table");
+        }
+
         Ok(())
     }
 

@@ -24,8 +24,14 @@ export interface Avatar {
   /** Get current avatar state */
   getState(): PetState;
 
+  /** Set facing direction in degrees (0-360) */
+  setDirection(degree: number): void;
+
+  /** Set display scale */
+  setScale(scale: number): void;
+
   /** Destroy the avatar and release resources */
   destroy(): void;
 }
 
-export type AvatarType = "live2d" | "pixel" | "3d";
+export type AvatarType = "live2d" | "pixel" | "3d" | "sprite";

@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "meta": {
+    "name": "PixelCat",
+    "author": "CoreAIpet",
+    "description": "A pixel art cat with 8-direction animations",
+    "version": "1.0.0"
+  },
+  "spritesheet": {
+    "image": "spritesheet.png",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "columns": 8,
+    "rows": 32,
+    "padding": 0,
+    "spacing": 0
+  },
+  "directions": {
+    "enabled": true,
+    "count": 8,
+    "mapping": {
+      "N": 0,
+      "NE": 4,
+      "E": 8,
+      "SE": 12,
+      "S": 16,
+      "SW": 20,
+      "W": 24,
+      "NW": 28
+    }
+  },
+  "states": {
+    "Idle": {
+      "frames": { "start": 0, "count": 4 },
+      "fps": 8,
+      "loop": true
+    },
+    "Walking": {
+      "frames": { "start": 0, "count": 8 },
+      "fps": 12,
+      "loop": true
+    },
+    "Thinking": {
+      "frames": { "start": 0, "count": 4 },
+      "fps": 6,
+      "loop": true
+    },
+    "Talking": {
+      "frames": { "start": 0, "count": 4 },
+      "fps": 10,
+      "loop": true
+    },
+    "Working": {
+      "frames": { "start": 0, "count": 6 },
+      "fps": 10,
+      "loop": true
+    },
+    "Meeting": {
+      "frames": { "start": 0, "count": 6 },
+      "fps": 10,
+      "loop": true
+    },
+    "Sleeping": {
+      "frames": { "start": 0, "count": 4 },
+      "fps": 4,
+      "loop": true
+    },
+    "Alert": {
+      "frames": { "start": 0, "count": 4 },
+      "fps": 12,
+      "loop": false
+    }
+  },
+  "motions": {
+    "idle": { "state": "Idle", "group": "default" },
+    "walk": { "state": "Walking", "group": "default" },
+    "think": { "state": "Thinking", "group": "default" },
+    "talk": { "state": "Talking", "group": "default" },
+    "work": { "state": "Working", "group": "default" },
+    "sleep": { "state": "Sleeping", "group": "default" },
+    "alert": { "state": "Alert", "group": "default" }
+  },
+  "expressions": {
+    "default": { "overlay": null },
+    "happy": { "overlay": "expressions/happy.png" },
+    "sad": { "overlay": "expressions/sad.png" },
+    "angry": { "overlay": "expressions/angry.png" }
+  },
+  "defaults": {
+    "state": "Idle",
+    "direction": "S",
+    "motion": "idle",
+    "expression": "default"
+  }
+}

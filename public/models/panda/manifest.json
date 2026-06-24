@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "meta": {
+    "name": "Panda",
+    "author": "Jason Bai",
+    "description": "A soft, healing panda companion with round eyes, tiny paws, and gentle calming poses.",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  "spritesheet": {
+    "image": "spritesheet.webp",
+    "frameWidth": 192,
+    "frameHeight": 208,
+    "columns": 8,
+    "rows": 9,
+    "padding": 0,
+    "spacing": 0
+  },
+  "states": {
+    "Idle": {
+      "frames": { "start": 0, "count": 6 },
+      "fps": 5,
+      "loop": true
+    },
+    "Walking": {
+      "frames": { "start": 8, "count": 8 },
+      "fps": 8,
+      "loop": true
+    },
+    "Talking": {
+      "frames": { "start": 24, "count": 4 },
+      "fps": 6,
+      "loop": false
+    },
+    "Alert": {
+      "frames": { "start": 32, "count": 5 },
+      "fps": 7,
+      "loop": false
+    },
+    "Failed": {
+      "frames": { "start": 40, "count": 8 },
+      "fps": 6,
+      "loop": false
+    },
+    "Waiting": {
+      "frames": { "start": 48, "count": 6 },
+      "fps": 5,
+      "loop": true
+    },
+    "Working": {
+      "frames": { "start": 56, "count": 6 },
+      "fps": 8,
+      "loop": true
+    },
+    "Thinking": {
+      "frames": { "start": 64, "count": 6 },
+      "fps": 5,
+      "loop": true
+    },
+    "Sleeping": {
+      "frames": { "start": 48, "count": 6 },
+      "fps": 3,
+      "loop": true
+    }
+  },
+  "motions": {
+    "idle": { "state": "Idle", "group": "default" },
+    "walk": { "state": "Walking", "group": "default" },
+    "talk": { "state": "Talking", "group": "default" },
+    "think": { "state": "Thinking", "group": "default" },
+    "work": { "state": "Working", "group": "default" },
+    "wait": { "state": "Waiting", "group": "default" },
+    "jump": { "state": "Alert", "group": "default" },
+    "sleep": { "state": "Sleeping", "group": "default" },
+    "alert": { "state": "Alert", "group": "default" }
+  },
+  "expressions": {
+    "default": { "overlay": null }
+  },
+  "defaults": {
+    "state": "Idle",
+    "motion": "idle",
+    "expression": "default"
+  },
+  "animated": false
+}

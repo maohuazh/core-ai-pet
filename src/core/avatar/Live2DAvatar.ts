@@ -49,6 +49,16 @@ export class Live2DAvatar implements Avatar {
     return this.currentState;
   }
 
+  setDirection(_degree: number): void {
+    // Live2D models don't support direction switching natively
+    // This is a no-op for Live2D avatars
+  }
+
+  setScale(_scale: number): void {
+    // Live2D models handle scale differently
+    // This is a no-op for Live2D avatars
+  }
+
   destroy(): void {
     this.destroyed = true;
   }

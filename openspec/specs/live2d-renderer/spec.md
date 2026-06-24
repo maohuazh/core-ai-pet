@@ -7,7 +7,14 @@
 - **WHEN** 应用启动并指定模型路径
 - **THEN** 系统 SHALL 使用 pixi-live2d-display 加载 .model3.json 文件
 - **THEN** 模型 SHALL 渲染在窗口的中心位置
-- **THEN** 模型 SHALL 自动缩放以适应 240x240 的渲染区域，缩放因子为 0.75
+- **THEN** 模型 SHALL 自动缩放以适应实际渲染区域（由 canvas 元素尺寸决定），缩放因子为 0.75
+- **THEN** PixiJS Application 的宽高 SHALL 与 canvas 元素的 clientWidth/clientHeight 一致
+
+#### Scenario: Canvas dimensions match window
+- **WHEN** Live2D 渲染器初始化时
+- **THEN** 系统 SHALL 读取 canvas DOM 元素的实际像素尺寸（clientWidth × clientHeight）
+- **THEN** PixiJS Application SHALL 使用该尺寸作为渲染分辨率
+- **THEN** 渲染区域 SHALL 与 Tauri 窗口尺寸完全匹配（200×200 像素）
 
 #### Scenario: Model loading progress
 - **WHEN** 模型正在加载中
@@ -18,41 +25,3 @@
 - **WHEN** 模型文件不存在或格式错误
 - **THEN** 系统 SHALL 在控制台输出错误信息
 - **THEN** 窗口 SHALL 显示一个占位图标表示加载失败
-
-### Requirement: Render Live2D animations
-系统 SHALL 播放 Live2D 模型的基础动画。
-
-#### Scenario: Play idle animation
-- **WHEN** 模型加载完成
-- **THEN** 系统 SHALL 自动播放模型的待机动画（idle motion）
-- **THEN** 动画 SHALL 循环播放
-
-#### Scenario: Render at 60fps
-- **WHEN** 模型正在显示
-- **THEN** 系统 SHALL 以 60 FPS 的帧率渲染动画
-- **THEN** 使用 requestAnimationFrame 控制渲染循环
-
-### Requirement: Live2D renderer interface
-系统 SHALL 提供统一的渲染器接口，支持未来扩展其他渲染方式。
-
-#### Scenario: Use IRenderer interface
-- **WHEN** 需要渲染宠物时
-- **THEN** 系统 SHALL 通过 IRenderer 接口调用渲染方法
-- **THEN** 当前实现 SHALL 为 Live2DRenderer
-
-#### Scenario: Switch renderer
-- **WHEN** 配置文件中指定了不同的渲染器类型
-- **THEN** 系统 SHALL 能够切换到其他渲染器实现（如 SpriteRenderer）
-
-### Requirement: Cubism SDK integration
-系统 SHALL 集成 Live2D Cubism 5 SDK 进行模型渲染。
-
-#### Scenario: Load Cubism core library
-- **WHEN** 应用启动
-- **THEN** 系统 SHALL 加载 cubismcore.js（Live2D Cubism 核心库）
-- **THEN** 系统 SHALL 验证 SDK 版本兼容性
-
-#### Scenario: Handle SDK license
-- **WHEN** 应用在生产环境运行
-- **THEN** 系统 SHALL 验证 Live2D SDK 许可证
-- **THEN** 开发环境 SHALL 可使用官方示例模型进行测试

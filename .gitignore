@@ -69,6 +69,19 @@ vendor/
 plugins/*/
 !plugins/.gitkeep
 
+# Node modules
+node_modules/
+
+# Rust/Cargo build
+src-tauri/target/
+
+# Claude Code
+.claude/
+
+# Backup files
+backup/
+*.bak
+
 # User data
 *.user
 AppData/

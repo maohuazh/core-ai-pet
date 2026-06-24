@@ -6,11 +6,13 @@
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { Live2DRenderer } from "../core/renderer/live2d/Live2DRenderer";
+import { SpriteSheetRenderer } from "../core/renderer/sprite/SpriteSheetRenderer";
 import { petStore } from "../core/model/PetStore";
 import { createAvatar, type Avatar } from "../core/avatar";
+import type { PetModelConfig } from "../core/model/ModelRegistry";
 
 const containerEl = ref<HTMLDivElement | null>(null);
-const renderer = ref<Live2DRenderer | null>(null);
+const renderer = ref<Live2DRenderer | SpriteSheetRenderer | null>(null);
 const avatar = ref<Avatar | null>(null);
 
 /** Expose avatar for parent components to use */
@@ -29,23 +31,45 @@ const onMouseDown = async (event: MouseEvent) => {
   }
 };
 
+/** Create the appropriate renderer based on model type */
+function createRenderer(model: PetModelConfig, container: HTMLElement, width: number, height: number): Live2DRenderer | SpriteSheetRenderer {
+  if (model.type === "sprite") {
+    return new SpriteSheetRenderer(container, width, height);
+  }
+  return new Live2DRenderer(container, width, height);
+}
+
 // Watch for model changes and reload renderer
 watch(
   () => petStore.currentModel.value,
   async (newModel) => {
-    if (renderer.value && newModel) {
-      console.log(`Switching to model: ${newModel.name}`);
-      try {
-        await renderer.value.loadModel(newModel.modelUrl);
-        console.log(`Model switched to: ${newModel.name}`);
-        // Recreate avatar for new model
-        if (avatar.value) {
-          avatar.value.destroy();
-        }
-        avatar.value = createAvatar("live2d", renderer.value);
-      } catch (error) {
-        console.error(`Failed to switch to model ${newModel.name}:`, error);
+    if (!newModel || !containerEl.value) return;
+
+    console.log(`Switching to model: ${newModel.name} (${newModel.type})`);
+    try {
+      // Destroy old renderer and avatar
+      if (avatar.value) {
+        avatar.value.destroy();
+        avatar.value = null;
       }
+      if (renderer.value) {
+        renderer.value.destroy();
+        renderer.value = null;
+      }
+
+      const width = containerEl.value.clientWidth || 200;
+      const height = containerEl.value.clientHeight || 200;
+
+      // Create new renderer based on model type
+      renderer.value = createRenderer(newModel, containerEl.value, width, height);
+      await renderer.value.init();
+      await renderer.value.loadModel(newModel.modelUrl);
+
+      // Create avatar with matching type
+      avatar.value = createAvatar(newModel.type === "sprite" ? "sprite" : "live2d", renderer.value as any);
+      console.log(`Model switched to: ${newModel.name}`);
+    } catch (error) {
+      console.error(`Failed to switch to model ${newModel.name}:`, error);
     }
   }
 );
@@ -78,25 +102,27 @@ onMounted(async () => {
   const width = containerEl.value.clientWidth || 200;
   const height = containerEl.value.clientHeight || 200;
 
-  renderer.value = new Live2DRenderer(containerEl.value, width, height);
+  // Load the current model from PetStore
+  const currentModel = petStore.currentModel.value;
+
+  // Create renderer based on model type
+  renderer.value = createRenderer(currentModel, containerEl.value, width, height);
 
   try {
     await renderer.value.init();
-    console.log("Renderer initialized, size:", width, "x", height);
+    console.log(`Renderer initialized (${currentModel.type}), size:`, width, "x", height);
   } catch (error) {
     console.error("Failed to initialize renderer:", error);
     return;
   }
 
-  // Load the current model from PetStore
-  const currentModel = petStore.currentModel.value;
   try {
-    console.log(`Loading initial model: ${currentModel.name}`);
+    console.log(`Loading initial model: ${currentModel.name} (${currentModel.type})`);
     await renderer.value.loadModel(currentModel.modelUrl);
     console.log(`Initial model loaded: ${currentModel.name}`);
 
-    // Create Avatar abstraction after model loads
-    avatar.value = createAvatar("live2d", renderer.value);
+    // Create Avatar abstraction with matching type
+    avatar.value = createAvatar(currentModel.type === "sprite" ? "sprite" : "live2d", renderer.value as any);
     console.log("Avatar created");
   } catch (error) {
     console.error(`Failed to load model ${currentModel.name}:`, error);
