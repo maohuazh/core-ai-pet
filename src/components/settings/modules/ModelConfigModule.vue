@@ -1,73 +1,84 @@
 <template>
   <div class="module-container">
-    <div class="module-header">
-      <h2 class="module-title">宠物配置</h2>
-      <button class="add-btn" @click="handleImport">+ 导入</button>
-    </div>
-    <div class="module-content">
-      <EmptyState
-        v-if="models.length === 0"
-        title="暂无宠物"
-        description="点击导入按钮添加第一个宠物"
-        action-label="导入宠物"
-        @action="handleImport"
-      />
-      <div
-        v-for="model in models"
-        :key="model.id"
-        :class="['model-card', { active: model.status === 'active' }]"
-      >
-        <div class="model-header">
-          <div class="model-icon">
-            {{ model.model_type === 'live2d' ? '🎭' : '🖼️' }}
+    <!-- Model List View -->
+    <template v-if="!showMappingPanel">
+      <div class="module-header">
+        <h2 class="module-title">宠物配置</h2>
+        <button class="add-btn" @click="handleImport">+ 导入</button>
+      </div>
+      <div class="module-content">
+        <EmptyState
+          v-if="models.length === 0"
+          title="暂无宠物"
+          description="点击导入按钮添加第一个宠物"
+          action-label="导入宠物"
+          @action="handleImport"
+        />
+        <div
+          v-for="model in models"
+          :key="model.id"
+          :class="['model-card', { active: model.status === 'active' }]"
+        >
+          <div class="model-header">
+            <div class="model-icon">
+              {{ model.model_type === 'live2d' ? '🎭' : '🖼️' }}
+            </div>
+            <div class="model-info">
+              <h3 class="model-name">{{ model.name }}</h3>
+              <p class="model-meta">
+                {{ model.model_type === 'live2d' ? 'Live2D' : 'Sprite' }}
+                <span v-if="model.author"> · {{ model.author }}</span>
+                <span v-if="model.version"> · v{{ model.version }}</span>
+              </p>
+            </div>
+            <button class="menu-btn" @click.stop="handleMenu(model)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="3" r="1.5" fill="currentColor" />
+                <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                <circle cx="8" cy="13" r="1.5" fill="currentColor" />
+              </svg>
+            </button>
           </div>
-          <div class="model-info">
-            <h3 class="model-name">{{ model.name }}</h3>
-            <p class="model-meta">
-              {{ model.model_type === 'live2d' ? 'Live2D' : 'Sprite' }}
-              <span v-if="model.author"> · {{ model.author }}</span>
-              <span v-if="model.version"> · v{{ model.version }}</span>
-            </p>
+          <div v-if="model.description" class="model-description">
+            {{ model.description }}
           </div>
-          <button class="menu-btn" @click.stop="handleMenu(model)">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="3" r="1.5" fill="currentColor" />
-              <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-              <circle cx="8" cy="13" r="1.5" fill="currentColor" />
-            </svg>
-          </button>
-        </div>
-        <div v-if="model.description" class="model-description">
-          {{ model.description }}
-        </div>
-        <div class="model-actions">
-          <button
-            v-if="model.status === 'active'"
-            class="action-btn active"
-            disabled
-          >
-            ✓ 当前宠物
-          </button>
-          <button
-            v-else
-            class="action-btn primary"
-            @click="handleActivate(model)"
-          >
-            ▶ 使用此宠物
-          </button>
-          <button class="action-btn secondary" @click="handleActions(model)">
-            ⚙ 动作映射
-          </button>
-          <button
-            v-if="model.source !== 'builtin'"
-            class="action-btn danger"
-            @click="handleDelete(model)"
-          >
-            🗑 删除
-          </button>
+          <div class="model-actions">
+            <button
+              v-if="model.status === 'active'"
+              class="action-btn active"
+              disabled
+            >
+              ✓ 当前宠物
+            </button>
+            <button
+              v-else
+              class="action-btn primary"
+              @click="handleActivate(model)"
+            >
+              ▶ 使用此宠物
+            </button>
+            <button class="action-btn secondary" @click="handleActions(model)">
+              ⚙ 动作映射
+            </button>
+            <button
+              v-if="model.source !== 'builtin'"
+              class="action-btn danger"
+              @click="handleDelete(model)"
+            >
+              🗑 删除
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
+
+    <!-- Action Mapping Panel View -->
+    <ActionMappingPanel
+      v-else
+      :model-id="selectedMappingModel!.id"
+      :model-name="selectedMappingModel!.name"
+      @back="showMappingPanel = false"
+    />
 
     <ConfirmDialog
       v-model:visible="showDeleteDialog"
@@ -85,11 +96,14 @@ import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import EmptyState from '../shared/EmptyState.vue';
 import ConfirmDialog from '../shared/ConfirmDialog.vue';
+import ActionMappingPanel from '../../action-mapping/ActionMappingPanel.vue';
 import type { Model } from '../types';
 
 const models = ref<Model[]>([]);
 const showDeleteDialog = ref(false);
 const selectedModel = ref<Model | null>(null);
+const showMappingPanel = ref(false);
+const selectedMappingModel = ref<Model | null>(null);
 
 const loadModels = async () => {
   try {
@@ -112,7 +126,8 @@ const handleActivate = async (model: Model) => {
 };
 
 const handleActions = (model: Model) => {
-  alert(`动作映射功能开发中\n宠物: ${model.name}`);
+  selectedMappingModel.value = model;
+  showMappingPanel.value = true;
 };
 
 const handleMenu = (model: Model) => {

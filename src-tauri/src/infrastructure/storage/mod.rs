@@ -176,6 +176,8 @@ impl Database {
                 motion_name TEXT,
                 expression_name TEXT,
                 effect_name TEXT,
+                effect_duration INTEGER,
+                effect_position TEXT DEFAULT 'center' CHECK (effect_position IN ('center', 'above', 'below')),
                 use_default INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -233,6 +235,23 @@ impl Database {
                  ALTER TABLE models ADD COLUMN manifest_path TEXT;",
             )?;
             log::info!("Migration: added type and manifest_path columns to models table");
+        }
+
+        // Check if 'effect_duration' column exists in model_action_mappings table
+        let has_effect_duration: bool = conn
+            .prepare("PRAGMA table_info(model_action_mappings)")?
+            .query_map([], |row| {
+                let name: String = row.get(1)?;
+                Ok(name == "effect_duration")
+            })?
+            .any(|r| r.unwrap_or(false));
+
+        if !has_effect_duration {
+            conn.execute_batch(
+                "ALTER TABLE model_action_mappings ADD COLUMN effect_duration INTEGER;
+                 ALTER TABLE model_action_mappings ADD COLUMN effect_position TEXT DEFAULT 'center';",
+            )?;
+            log::info!("Migration: added effect_duration and effect_position columns to model_action_mappings table");
         }
 
         Ok(())

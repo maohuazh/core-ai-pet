@@ -97,6 +97,15 @@ export class SpriteSheetRenderer implements IRenderer {
     // Initialize animation engine
     this.engine = new SpriteSheetAnimationEngine(this.manifest);
 
+    // Auto-return to Idle when a non-looping animation completes
+    this.engine.onComplete(() => {
+      const defaultState = this.manifest?.defaults?.state || "Idle";
+      console.log(`SpriteSheetRenderer: animation complete, returning from ${this.engine!.getStateName()} to ${defaultState}`);
+      if (this.engine!.getStateName() !== defaultState) {
+        this.engine!.setState(defaultState);
+      }
+    });
+
     // Canvas stays at container dimensions (like Live2D).
     // Sprite is scaled to fit within the canvas, preserving aspect ratio.
     if (this.canvas) {
@@ -123,6 +132,7 @@ export class SpriteSheetRenderer implements IRenderer {
       return;
     }
 
+    console.log(`SpriteSheetRenderer: setState(${motion.state}) for motion "${group}", current state: ${this.engine.getStateName()}`);
     this.engine.setState(motion.state);
   }
 
@@ -277,9 +287,8 @@ export class SpriteSheetRenderer implements IRenderer {
       return;
     }
 
-    // In static mode, pass 0 delta so engine doesn't advance frames
-    const effectiveDelta = this.manifest.animated === false ? 0 : deltaMs;
-    const frame = this.engine.update(effectiveDelta);
+    // Always pass deltaMs so state animations play correctly
+    const frame = this.engine.update(deltaMs);
 
     // Draw main frame from sprite sheet
     const { sx, sy, sw, sh } = frame.sourceRect;

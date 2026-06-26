@@ -17,6 +17,8 @@ import SettingsPanel from "./components/settings/SettingsPanel.vue";
 import { invoke } from "@tauri-apps/api/core";
 import { modelRegistry } from "./core/model/ModelRegistry";
 import { petStore } from "./core/model/PetStore";
+import { registerTriggerExecutor, unregisterTriggerExecutor } from "./core/action/triggerExecutor";
+import { AVAILABLE_EFFECTS } from "./core/action/effects";
 
 // Check if current route is /settings
 const isSettingsRoute = computed(() => {
@@ -29,6 +31,7 @@ const showMenu = ref(false);
 let unlistenStart: UnlistenFn | null = null;
 let unlistenEnd: UnlistenFn | null = null;
 let unlistenModelChanged: UnlistenFn | null = null;
+let unlistenPreviewMapping: UnlistenFn | null = null;
 let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(async () => {
@@ -39,6 +42,67 @@ onMounted(async () => {
       const model = modelRegistry.getById(event.payload.modelId);
       if (model) {
         petStore.setCurrentModel(model);
+      }
+    });
+
+    // Listen for preview action mapping events from settings window
+    unlistenPreviewMapping = await listen<{
+      modelId: string;
+      motionGroup?: string | null;
+      motionName?: string | null;
+      expressionName?: string | null;
+      effectName?: string | null;
+      effectDuration?: number | null;
+      effectPosition?: string | null;
+    }>("preview-action-mapping", async (event) => {
+      const avatar = canvasRef.value?.avatar;
+      if (!avatar) {
+        console.warn("Preview: avatar not available");
+        return;
+      }
+
+      try {
+        // Play motion if configured
+        if (event.payload.motionGroup) {
+          // Note: We use group name and let it pick a random motion from that group
+          // In future, we could map motionName to index if needed
+          await avatar.playMotion(event.payload.motionGroup);
+        }
+
+        // Play expression if configured
+        if (event.payload.expressionName) {
+          await avatar.playExpression(event.payload.expressionName);
+        }
+
+        // Play effect if configured
+        if (event.payload.effectName) {
+          showEffect(event.payload.effectName, event.payload.effectDuration || 2000, event.payload.effectPosition || "center");
+        }
+      } catch (e) {
+        console.error("Preview failed:", e);
+      }
+    });
+
+    // Register trigger executor so triggerHandler can call avatar directly (same window)
+    registerTriggerExecutor(async (payload) => {
+      const avatar = canvasRef.value?.avatar;
+      if (!avatar) {
+        console.warn("Trigger: avatar not available");
+        return;
+      }
+
+      try {
+        if (payload.motionGroup) {
+          await avatar.playMotion(payload.motionGroup);
+        }
+        if (payload.expressionName) {
+          await avatar.playExpression(payload.expressionName);
+        }
+        if (payload.effectName) {
+          showEffect(payload.effectName, payload.effectDuration || 2000, payload.effectPosition || "center");
+        }
+      } catch (e) {
+        console.error("Trigger failed:", e);
       }
     });
 
@@ -70,14 +134,72 @@ onMounted(async () => {
       }, 200);
     });
   }
+
+  // TEMP: Press T to manually trigger daily_2 for testing
+  const onTestKey = async (e: KeyboardEvent) => {
+    if (e.key === "t" || e.key === "T") {
+      console.log("Manual trigger: daily_2");
+      const { triggerHandler } = await import("./core/events/triggerHandler");
+      await triggerHandler.fireTrigger("daily_2");
+    }
+  };
+  window.addEventListener("keydown", onTestKey);
+  // Store for cleanup
+  (window as any).__testKeyHandler = onTestKey;
 });
 
 onUnmounted(() => {
   unlistenStart?.();
   unlistenEnd?.();
   unlistenModelChanged?.();
+  unlistenPreviewMapping?.();
+  unregisterTriggerExecutor();
+  if ((window as any).__testKeyHandler) {
+    window.removeEventListener("keydown", (window as any).__testKeyHandler);
+  }
   if (hideTimeout) clearTimeout(hideTimeout);
 });
+
+/** Show a floating emoji effect above/near the pet */
+function showEffect(effectName: string, duration: number, position: string) {
+  const effect = AVAILABLE_EFFECTS.find((e) => e.id === effectName);
+  if (!effect) {
+    console.warn(`Unknown effect: ${effectName}`);
+    return;
+  }
+
+  const el = document.createElement("div");
+  el.textContent = effect.icon;
+  el.style.cssText = `
+    position: fixed;
+    font-size: 32px;
+    pointer-events: none;
+    z-index: 9999;
+    animation: effectFloat ${duration}ms ease-out forwards;
+    left: 50%;
+    ${position === "above" ? "top: 10%;" : position === "below" ? "bottom: 10%;" : "top: 30%;"}
+    transform: translateX(-50%);
+  `;
+
+  // Add keyframe animation if not already added
+  if (!document.getElementById("effect-float-style")) {
+    const style = document.createElement("style");
+    style.id = "effect-float-style";
+    style.textContent = `
+      @keyframes effectFloat {
+        0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.5); }
+        20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.2); }
+        40% { transform: translateX(-50%) translateY(-5px) scale(1); }
+        80% { opacity: 1; }
+        100% { opacity: 0; transform: translateX(-50%) translateY(-30px) scale(0.8); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
 
 const actionLabels: Record<string, string> = {
   task: "任务",
