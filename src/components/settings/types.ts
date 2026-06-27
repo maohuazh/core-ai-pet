@@ -86,7 +86,7 @@ export interface ActionMapping {
 }
 
 // === Settings Module Types ===
-export type SettingsModule = 'jira' | 'email' | 'chat' | 'model';
+export type SettingsModule = 'jira' | 'email' | 'chat' | 'model' | 'llm';
 
 export interface SettingsState {
   activeModule: SettingsModule;

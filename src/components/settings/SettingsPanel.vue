@@ -9,6 +9,7 @@
           <EmailModule v-else-if="activeModule === 'email'" key="email" />
           <ChatModule v-else-if="activeModule === 'chat'" key="chat" />
           <ModelConfigModule v-else-if="activeModule === 'model'" key="model" />
+          <LLMModule v-else-if="activeModule === 'llm'" key="llm" />
         </Transition>
       </div>
     </div>
@@ -23,6 +24,7 @@ import JiraModule from './modules/JiraModule.vue';
 import EmailModule from './modules/EmailModule.vue';
 import ChatModule from './modules/ChatModule.vue';
 import ModelConfigModule from './modules/ModelConfigModule.vue';
+import LLMModule from '@/modules/settings/LLMSettings.vue';
 import type { SettingsModule } from './types';
 
 const activeModule = ref<SettingsModule>('jira');

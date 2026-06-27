@@ -28,6 +28,7 @@ const navItems = [
   { key: 'email' as SettingsModule, icon: '📧', label: '邮箱' },
   { key: 'chat' as SettingsModule, icon: '💬', label: '聊天' },
   { key: 'model' as SettingsModule, icon: '🐾', label: '宠物' },
+  { key: 'llm' as SettingsModule, icon: '🤖', label: 'AI 模型' },
 ];
 </script>
 
