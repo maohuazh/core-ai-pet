@@ -228,21 +228,49 @@ impl SecretStore {
 
     /// `~/.core-ai-pet/.secrets/` 目录路径
     fn secrets_dir() -> Result<PathBuf, SecretError> {
-        let home = std::env::var_os("USERPROFILE")
-            .or_else(|| std::env::var_os("HOME"))
-            .ok_or_else(|| {
-                SecretError::Internal("cannot determine home directory".to_string())
-            })?;
-        let base = PathBuf::from(home).join(".core-ai-pet").join(SECRETS_SUBDIR);
-        Ok(base)
+        Self::secrets_dir_with_base(None)
+    }
+
+    /// 带自定义 base 的 secrets_dir（供测试使用）
+    ///
+    /// 若 `base` 为 None，使用 `~/.core-ai-pet/`；否则使用给定路径。
+    fn secrets_dir_with_base(base: Option<&std::path::Path>) -> Result<PathBuf, SecretError> {
+        let root = match base {
+            Some(b) => b.to_path_buf(),
+            None => {
+                let home = std::env::var_os("USERPROFILE")
+                    .or_else(|| std::env::var_os("HOME"))
+                    .ok_or_else(|| {
+                        SecretError::Internal("cannot determine home directory".to_string())
+                    })?;
+                PathBuf::from(home).join(".core-ai-pet")
+            }
+        };
+        Ok(root.join(SECRETS_SUBDIR))
     }
 
     fn secret_path(secret_ref: &str) -> Result<PathBuf, SecretError> {
         Ok(Self::secrets_dir()?.join(secret_ref))
     }
 
+    fn secret_path_with_base(
+        secret_ref: &str,
+        base: Option<&std::path::Path>,
+    ) -> Result<PathBuf, SecretError> {
+        Ok(Self::secrets_dir_with_base(base)?.join(secret_ref))
+    }
+
     fn file_save(secret_ref: &str, plaintext: &str) -> Result<(), SecretError> {
-        let path = Self::secret_path(secret_ref)?;
+        Self::file_save_with_base(secret_ref, plaintext, None)
+    }
+
+    /// 带自定义 base 的 file_save（供测试使用）
+    fn file_save_with_base(
+        secret_ref: &str,
+        plaintext: &str,
+        base: Option<&std::path::Path>,
+    ) -> Result<(), SecretError> {
+        let path = Self::secret_path_with_base(secret_ref, base)?;
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -257,7 +285,15 @@ impl SecretStore {
     }
 
     fn file_get(secret_ref: &str) -> Result<String, SecretError> {
-        let path = Self::secret_path(secret_ref)?;
+        Self::file_get_with_base(secret_ref, None)
+    }
+
+    /// 带自定义 base 的 file_get（供测试使用）
+    fn file_get_with_base(
+        secret_ref: &str,
+        base: Option<&std::path::Path>,
+    ) -> Result<String, SecretError> {
+        let path = Self::secret_path_with_base(secret_ref, base)?;
         if !path.exists() {
             return Err(SecretError::NotFound);
         }
@@ -267,7 +303,15 @@ impl SecretStore {
     }
 
     fn file_delete(secret_ref: &str) -> Result<(), SecretError> {
-        let path = Self::secret_path(secret_ref)?;
+        Self::file_delete_with_base(secret_ref, None)
+    }
+
+    /// 带自定义 base 的 file_delete（供测试使用）
+    fn file_delete_with_base(
+        secret_ref: &str,
+        base: Option<&std::path::Path>,
+    ) -> Result<(), SecretError> {
+        let path = Self::secret_path_with_base(secret_ref, base)?;
         if !path.exists() {
             return Err(SecretError::NotFound);
         }
@@ -295,5 +339,129 @@ impl SecretStore {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 创建一个隔离的临时目录用于测试
+    struct TempSecretsDir {
+        path: PathBuf,
+    }
+
+    impl TempSecretsDir {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "coreai_secret_test_{}",
+                Uuid::new_v4()
+            ));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+    }
+
+    impl Drop for TempSecretsDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    /// 测试：file_save + file_get round-trip
+    #[test]
+    fn test_file_roundtrip() {
+        let tmp = TempSecretsDir::new();
+        let base = tmp.path.as_path();
+        let secret_ref = "test-uuid-1";
+        let plaintext = "sk-test-abc123";
+
+        SecretStore::file_save_with_base(secret_ref, plaintext, Some(base)).unwrap();
+        let got = SecretStore::file_get_with_base(secret_ref, Some(base)).unwrap();
+        assert_eq!(got, plaintext);
+    }
+
+    /// 测试：file_get 不存在的 secret_ref → NotFound
+    #[test]
+    fn test_file_get_not_found() {
+        let tmp = TempSecretsDir::new();
+        let base = tmp.path.as_path();
+
+        let err = SecretStore::file_get_with_base("no-such-uuid", Some(base)).unwrap_err();
+        assert!(matches!(err, SecretError::NotFound));
+    }
+
+    /// 测试：file_delete 成功
+    #[test]
+    fn test_file_delete_success() {
+        let tmp = TempSecretsDir::new();
+        let base = tmp.path.as_path();
+        let secret_ref = "test-uuid-del";
+
+        SecretStore::file_save_with_base(secret_ref, "data", Some(base)).unwrap();
+        SecretStore::file_delete_with_base(secret_ref, Some(base)).unwrap();
+
+        let err = SecretStore::file_get_with_base(secret_ref, Some(base)).unwrap_err();
+        assert!(matches!(err, SecretError::NotFound));
+    }
+
+    /// 测试：file_delete 不存在的 → NotFound
+    #[test]
+    fn test_file_delete_not_found() {
+        let tmp = TempSecretsDir::new();
+        let base = tmp.path.as_path();
+
+        let err = SecretStore::file_delete_with_base("no-such", Some(base)).unwrap_err();
+        assert!(matches!(err, SecretError::NotFound));
+    }
+
+    /// 测试（Unix only）：file_save 设置 mode 0600
+    #[cfg(unix)]
+    #[test]
+    fn test_file_permissions_unix() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = TempSecretsDir::new();
+        let base = tmp.path.as_path();
+        let secret_ref = "test-uuid-perm";
+
+        SecretStore::file_save_with_base(secret_ref, "data", Some(base)).unwrap();
+
+        let path = SecretStore::secret_path_with_base(secret_ref, Some(base)).unwrap();
+        let meta = std::fs::metadata(&path).unwrap();
+        let mode = meta.permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "expected 0600, got {:o}", mode);
+    }
+
+    /// 测试：secrets_dir_with_base 自定义 base 路径
+    #[test]
+    fn test_secrets_dir_with_base() {
+        let base = std::path::Path::new("/tmp/custom-base");
+        let dir = SecretStore::secrets_dir_with_base(Some(base)).unwrap();
+        assert_eq!(dir, PathBuf::from("/tmp/custom-base/.secrets"));
+    }
+
+    /// 测试：secrets_dir 无 base 时使用 HOME
+    #[test]
+    fn test_secrets_dir_uses_home() {
+        // 依赖 HOME / USERPROFILE 存在，跳过若不存在
+        if std::env::var_os("HOME").is_none() && std::env::var_os("USERPROFILE").is_none() {
+            return;
+        }
+        let dir = SecretStore::secrets_dir().unwrap();
+        assert!(dir.to_string_lossy().contains(".core-ai-pet"));
+        assert!(dir.to_string_lossy().contains(".secrets"));
+    }
+
+    /// 测试：secret_path_with_base 拼接正确
+    #[test]
+    fn test_secret_path_concat() {
+        let base = std::path::Path::new("/tmp/x");
+        let path = SecretStore::secret_path_with_base("uuid-123", Some(base)).unwrap();
+        assert_eq!(
+            path,
+            PathBuf::from("/tmp/x/.secrets/uuid-123")
+        );
     }
 }

@@ -6,7 +6,7 @@
 - [x] 1.4 实现 DPAPI fallback：Keyring 失败时写 `~/.core-ai-pet/.secrets/<secret_ref>`，Windows 用 DPAPI，Unix 用 mode 0600。
 - [x] 1.5 实现 `config.rs`：`load_llm_config(role) -> LLMConfig` / `save_llm_config(role, cfg)`，TOML 段 `[llm.<role>]` 嵌套解析。
 - [x] 1.6 单测：5 种 TOML 错误（缺失必填字段 / 非法类型 / 空段 / 嵌套错 / 文件不存在）的行为。
-- [ ] 1.7 单测：secret_store 的存/取/删 + fallback 路径 + 文件权限 0600（Unix only）。
+- [x] 1.7 单测：secret_store 的存/取/删 + fallback 路径 + 文件权限 0600（Unix only）。
 
 ## 2. 后端：Tauri 命令
 
