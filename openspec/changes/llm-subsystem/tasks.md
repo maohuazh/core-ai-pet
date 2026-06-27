@@ -12,7 +12,7 @@
 
 - [x] 2.1 在 `src-tauri/src/commands/` 下新增 `llm.rs`，声明 5 个命令：`llm_load_config` / `llm_save_config` / `llm_get_secret` / `llm_save_secret` / `llm_delete_secret`。
 - [x] 2.2 新增 `llm_test_connection` 命令：接收 `{ role }`，内部构造 ping 请求返回 `{ ok, reason? }`。
-- [ ] 2.3 新增 `llm_invoke` 命令：接收 `{ role, request }`，在 Rust 端持有 plaintext key，发起 HTTPS+SSE 请求（详见 §3），通过 `emit_to` 推 `llm_delta` 事件给 Renderer。
+- [x] 2.3 新增 `llm_invoke` 命令：接收 `{ role, request }`，在 Rust 端持有 plaintext key，发起 HTTPS+SSE 请求（详见 §3），通过 `emit_to` 推 `llm_delta` 事件给 Renderer。
 - [ ] 2.4 在 `src-tauri/src/main.rs` 注册上述命令。
 - [ ] 2.5 单测：`llm_get_secret` 缺失时返回 `secret_not_found` 错误。
 - [ ] 2.6 单测：`llm_invoke` 在配置缺失时返回 `config_not_found`。

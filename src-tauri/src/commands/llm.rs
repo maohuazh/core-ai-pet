@@ -7,7 +7,7 @@
 //! 详见 PRD §6.2 / ARCH §2.2 / design.md D1-D6。
 
 use serde::{Deserialize, Serialize};
-use tauri::command;
+use tauri::{command, Emitter};
 
 use crate::infrastructure::llm::{config, secret_store};
 
@@ -307,4 +307,338 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len])
     }
+}
+
+// ============================================================================
+// Commands: Invoke (streaming)
+// ============================================================================
+
+/// LLM 调用请求（Renderer → Rust）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LLMInvokeRequest {
+    pub messages: Vec<LLMMessage>,
+    pub system: Option<String>,
+    pub stream: bool,
+}
+
+/// 单条消息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LLMMessage {
+    pub role: String,
+    pub content: String,
+}
+
+/// Unified Delta（Rust → Renderer 事件）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum UnifiedDelta {
+    Text { delta: String },
+    Thinking { delta: String },
+    ToolUseStart { id: String, name: String },
+    ToolUseDelta { id: String, args_delta: String },
+    ToolUseEnd { id: String },
+    Usage {
+        input_tokens: Option<u64>,
+        output_tokens: Option<u64>,
+        cached: Option<u64>,
+    },
+    Stop { reason: String },
+    Error {
+        recoverable: bool,
+        code: String,
+        message: String,
+    },
+}
+
+/// llm_delta 事件 payload（emit 给 Renderer）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LLMDeltaEvent {
+    pub turn_id: String,
+    pub delta: UnifiedDelta,
+}
+
+/// llm_invoke 命令的返回值（仅 turn_id，实际流通过事件）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LLMInvokeResponse {
+    pub turn_id: String,
+}
+
+/// 调用 LLM 并流式返回 delta 事件
+///
+/// # Flow
+/// 1. 加载 role 配置 + 取 API key
+/// 2. 生成 turn_id
+/// 3. 异步 spawn：向 provider 发起 streaming 请求
+/// 4. 解析 SSE 事件，emit `llm_delta` 给当前窗口
+/// 5. 流结束 emit `llm_done`
+#[command]
+pub async fn llm_invoke(
+    app: tauri::AppHandle,
+    role: String,
+    request: LLMInvokeRequest,
+) -> Result<LLMInvokeResponse, ErrorPayload> {
+    // 1. 加载配置
+    let cfg = config::load_llm_config(&role).map_err(|e| match e {
+        config::ConfigError::FileNotFound => ErrorPayload {
+            error: "file_not_found".to_string(),
+            message: "config.toml not found".to_string(),
+        },
+        config::ConfigError::RoleNotFound(r) => ErrorPayload {
+            error: "role_not_found".to_string(),
+            message: format!("role '{}' not configured", r),
+        },
+        other => ErrorPayload {
+            error: "config_error".to_string(),
+            message: other.to_string(),
+        },
+    })?;
+
+    // 2. 取 API key
+    let api_key = secret_store::SecretStore::get_secret(&cfg.secret_ref).map_err(|e| match e {
+        secret_store::SecretError::NotFound => ErrorPayload {
+            error: "secret_not_found".to_string(),
+            message: "API key not configured".to_string(),
+        },
+        other => ErrorPayload {
+            error: "secret_error".to_string(),
+            message: other.to_string(),
+        },
+    })?;
+
+    // 3. 生成 turn_id
+    let turn_id = uuid::Uuid::new_v4().to_string();
+    let turn_id_clone = turn_id.clone();
+
+    // 4. Spawn streaming task
+    tauri::async_runtime::spawn(async move {
+        match cfg.provider.as_str() {
+            "anthropic" => {
+                anthropic_stream(&app, &turn_id_clone, &cfg, &api_key, &request).await
+            }
+            other => {
+                let delta = UnifiedDelta::Error {
+                    recoverable: false,
+                    code: "unsupported_provider".to_string(),
+                    message: format!("provider '{}' not implemented in M1", other),
+                };
+                emit_delta(&app, &turn_id_clone, delta);
+                emit_done(&app, &turn_id_clone);
+            }
+        }
+    });
+
+    Ok(LLMInvokeResponse { turn_id })
+}
+
+/// Anthropic 流式请求实现
+async fn anthropic_stream(
+    app: &tauri::AppHandle,
+    turn_id: &str,
+    cfg: &config::LLMConfig,
+    api_key: &str,
+    request: &LLMInvokeRequest,
+) {
+    use futures_util::StreamExt;
+
+    let base_url = cfg
+        .base_url
+        .as_deref()
+        .unwrap_or("https://api.anthropic.com");
+    let url = format!("{}/v1/messages", base_url);
+
+    let body = serde_json::json!({
+        "model": cfg.model,
+        "max_tokens": cfg.params.max_tokens,
+        "stream": true,
+        "system": request.system,
+        "messages": request.messages.iter().map(|m| serde_json::json!({
+            "role": m.role,
+            "content": m.content,
+        })).collect::<Vec<_>>()
+    });
+
+    let client = reqwest::Client::new();
+    let resp = match client
+        .post(&url)
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("content-type", "application/json")
+        .header("accept", "text/event-stream")
+        .json(&body)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            emit_delta(
+                app,
+                turn_id,
+                UnifiedDelta::Error {
+                    recoverable: true,
+                    code: "network_error".to_string(),
+                    message: e.to_string(),
+                },
+            );
+            emit_done(app, turn_id);
+            return;
+        }
+    };
+
+    let status = resp.status().as_u16();
+    if status >= 400 {
+        let body_text = resp.text().await.unwrap_or_default();
+        let recoverable = status >= 500 || status == 429;
+        emit_delta(
+            app,
+            turn_id,
+            UnifiedDelta::Error {
+                recoverable,
+                code: format!("http_{}", status),
+                message: truncate(&body_text, 500),
+            },
+        );
+        emit_done(app, turn_id);
+        return;
+    }
+
+    // 解析 SSE 流
+    let mut stream = resp.bytes_stream();
+    let mut buffer = String::new();
+
+    while let Some(chunk) = stream.next().await {
+        match chunk {
+            Ok(bytes) => {
+                buffer.push_str(&String::from_utf8_lossy(&bytes));
+                // 按行解析 SSE
+                while let Some(newline_pos) = buffer.find('\n') {
+                    let line = buffer[..newline_pos].trim().to_string();
+                    buffer = buffer[newline_pos + 1..].to_string();
+
+                    if line.is_empty() || line.starts_with(':') {
+                        continue; // 跳过空行和注释
+                    }
+
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        if let Some(delta) = parse_anthropic_event(data) {
+                            emit_delta(app, turn_id, delta);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                emit_delta(
+                    app,
+                    turn_id,
+                    UnifiedDelta::Error {
+                        recoverable: true,
+                        code: "stream_error".to_string(),
+                        message: e.to_string(),
+                    },
+                );
+                break;
+            }
+        }
+    }
+
+    emit_done(app, turn_id);
+}
+
+/// 解析 Anthropic SSE 事件为 UnifiedDelta
+fn parse_anthropic_event(data: &str) -> Option<UnifiedDelta> {
+    let json: serde_json::Value = serde_json::from_str(data).ok()?;
+    let event_type = json.get("type")?.as_str()?;
+
+    match event_type {
+        "content_block_delta" => {
+            let delta = json.get("delta")?;
+            let delta_type = delta.get("type")?.as_str()?;
+            match delta_type {
+                "text_delta" => {
+                    let text = delta.get("text")?.as_str()?;
+                    Some(UnifiedDelta::Text {
+                        delta: text.to_string(),
+                    })
+                }
+                "thinking_delta" => {
+                    let thinking = delta.get("thinking")?.as_str()?;
+                    Some(UnifiedDelta::Thinking {
+                        delta: thinking.to_string(),
+                    })
+                }
+                "input_json_delta" => {
+                    let partial_json = delta.get("partial_json")?.as_str().unwrap_or("");
+                    let id = json.get("index")?.as_u64().unwrap_or(0).to_string();
+                    Some(UnifiedDelta::ToolUseDelta {
+                        id,
+                        args_delta: partial_json.to_string(),
+                    })
+                }
+                _ => None,
+            }
+        }
+        "content_block_start" => {
+            let block = json.get("content_block")?;
+            let block_type = block.get("type")?.as_str()?;
+            if block_type == "tool_use" {
+                let id = block.get("id")?.as_str()?.to_string();
+                let name = block.get("name")?.as_str()?.to_string();
+                Some(UnifiedDelta::ToolUseStart { id, name })
+            } else {
+                None
+            }
+        }
+        "content_block_stop" => {
+            let id = json.get("index")?.as_u64().unwrap_or(0).to_string();
+            Some(UnifiedDelta::ToolUseEnd { id })
+        }
+        "message_delta" => {
+            let usage = json.get("usage")?;
+            let output_tokens = usage.get("output_tokens")?.as_u64();
+            Some(UnifiedDelta::Usage {
+                input_tokens: None,
+                output_tokens,
+                cached: None,
+            })
+        }
+        "message_start" => {
+            let message = json.get("message")?;
+            let usage = message.get("usage")?;
+            let input_tokens = usage.get("input_tokens")?.as_u64();
+            let cached = usage.get("cache_read_input_tokens").and_then(|v| v.as_u64());
+            Some(UnifiedDelta::Usage {
+                input_tokens,
+                output_tokens: None,
+                cached,
+            })
+        }
+        "message_stop" => Some(UnifiedDelta::Stop {
+            reason: "end_turn".to_string(),
+        }),
+        "error" => {
+            let error = json.get("error")?;
+            let err_type = error.get("type")?.as_str().unwrap_or("unknown");
+            let message = error.get("message")?.as_str().unwrap_or("unknown error");
+            let recoverable = err_type.contains("overloaded") || err_type.contains("rate");
+            Some(UnifiedDelta::Error {
+                recoverable,
+                code: err_type.to_string(),
+                message: message.to_string(),
+            })
+        }
+        _ => None,
+    }
+}
+
+/// Emit delta 事件给 Renderer
+fn emit_delta(app: &tauri::AppHandle, turn_id: &str, delta: UnifiedDelta) {
+    let event = LLMDeltaEvent {
+        turn_id: turn_id.to_string(),
+        delta,
+    };
+    let _ = app.emit("llm_delta", event);
+}
+
+/// Emit done 事件给 Renderer
+fn emit_done(app: &tauri::AppHandle, turn_id: &str) {
+    let _ = app.emit("llm_done", serde_json::json!({ "turn_id": turn_id }));
 }
