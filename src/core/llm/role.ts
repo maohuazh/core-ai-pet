@@ -7,7 +7,7 @@
 /**
  * Available LLM roles in the system
  */
-export type LLMRole = 'chat_assistant';
+export type LLMRole = 'chat_assistant' | 'message_assistant';
 
 /**
  * Role metadata
@@ -25,6 +25,11 @@ export const ROLE_METADATA: Record<LLMRole, RoleMetadata> = {
   chat_assistant: {
     name: 'Chat Assistant',
     description: 'General purpose chat assistant for user interactions',
+    defaultModel: 'claude-3-5-sonnet-20241022'
+  },
+  message_assistant: {
+    name: 'Message Assistant',
+    description: 'Message assistant for handling notifications and alerts',
     defaultModel: 'claude-3-5-sonnet-20241022'
   }
 };

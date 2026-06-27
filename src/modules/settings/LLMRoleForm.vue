@@ -16,9 +16,10 @@ const emit = defineEmits<{
 const provider = ref<LLMProvider>('anthropic');
 const model = ref('claude-3-5-sonnet-20241022');
 const baseUrl = ref('https://api.anthropic.com');
-const secretRef = ref('');
+const apiKey = ref(''); // Actual API key input (not secret_ref)
 const temperature = ref(0.7);
 const maxTokens = ref(4096);
+const existingSecretRef = ref(''); // Track existing secret_ref from loaded config
 
 // UI state
 const testing = ref(false);
@@ -33,9 +34,11 @@ watch(() => props.config, (newConfig) => {
     provider.value = newConfig.provider;
     model.value = newConfig.model;
     baseUrl.value = newConfig.base_url;
-    secretRef.value = newConfig.secret_ref;
+    existingSecretRef.value = newConfig.secret_ref;
     temperature.value = newConfig.params.temperature;
     maxTokens.value = newConfig.params.max_tokens;
+    // Don't load existing secret - user must enter new API key to change it
+    apiKey.value = '';
   }
 }, { immediate: true });
 
@@ -57,16 +60,17 @@ function validate(): boolean {
     }
   }
 
-  if (!secretRef.value.trim()) {
-    errors.secretRef = 'API 密钥引用不能为空';
+  // API key is required only if no existing secret_ref
+  if (!apiKey.value.trim() && !existingSecretRef.value) {
+    errors.apiKey = 'API 密钥不能为空';
   }
 
   if (temperature.value < 0 || temperature.value > 2) {
     errors.temperature = '温度必须在 0-2 之间';
   }
 
-  if (maxTokens.value < 1 || maxTokens.value > 100000) {
-    errors.maxTokens = '最大 token 数必须在 1-100000 之间';
+  if (maxTokens.value < 1 || maxTokens.value > 1000000) {
+    errors.maxTokens = '最大 token 数必须在 1-1000000 之间';
   }
 
   validationErrors.value = errors;
@@ -84,12 +88,12 @@ async function testConnection() {
   testError.value = '';
 
   try {
-    // First save the config temporarily
-    const tempConfig: LLMConfig = {
+    // Build config payload
+    const tempConfig = {
       provider: provider.value,
       model: model.value,
       base_url: baseUrl.value,
-      secret_ref: secretRef.value,
+      secret_ref: existingSecretRef.value || 'temp', // Will be overridden by api_key param
       role: props.role,
       params: {
         temperature: temperature.value,
@@ -97,12 +101,19 @@ async function testConnection() {
       }
     };
 
-    await invoke('llm_test_connection', {
+    // Call test connection with config and optional API key
+    const result = await invoke<{ ok: boolean; reason?: string }>('llm_test_connection', {
       role: props.role,
-      config: tempConfig
+      config: tempConfig,
+      apiKey: apiKey.value || undefined // Pass API key if provided
     });
 
-    testResult.value = 'success';
+    if (result.ok) {
+      testResult.value = 'success';
+    } else {
+      testResult.value = 'error';
+      testError.value = result.reason || '连接失败';
+    }
   } catch (e: any) {
     testResult.value = 'error';
     testError.value = e.toString();
@@ -120,11 +131,21 @@ async function save() {
   saving.value = true;
 
   try {
+    // If API key is provided, save it to keyring first
+    let secretRef = existingSecretRef.value;
+    if (apiKey.value.trim()) {
+      const result = await invoke<{ secret_ref: string }>('llm_save_secret', {
+        role: props.role,
+        plaintext: apiKey.value
+      });
+      secretRef = result.secret_ref;
+    }
+
     const config: LLMConfig = {
       provider: provider.value,
       model: model.value,
       base_url: baseUrl.value,
-      secret_ref: secretRef.value,
+      secret_ref: secretRef,
       role: props.role,
       params: {
         temperature: temperature.value,
@@ -179,17 +200,17 @@ async function save() {
     </div>
 
     <div class="form-group">
-      <label>API 密钥引用</label>
+      <label>API 密钥</label>
       <input
-        v-model="secretRef"
+        v-model="apiKey"
         type="password"
-        placeholder="密钥在系统密钥链中的引用"
-        :class="{ error: validationErrors.secretRef }"
+        :placeholder="existingSecretRef ? '已配置，输入新密钥以更新' : 'sk-ant-...'"
+        :class="{ error: validationErrors.apiKey }"
       />
-      <span v-if="validationErrors.secretRef" class="error-text">
-        {{ validationErrors.secretRef }}
+      <span v-if="validationErrors.apiKey" class="error-text">
+        {{ validationErrors.apiKey }}
       </span>
-      <small>密钥通过系统密钥链安全存储</small>
+      <small>API 密钥通过系统密钥链安全存储</small>
     </div>
 
     <div class="form-group">
@@ -214,7 +235,7 @@ async function save() {
         v-model.number="maxTokens"
         type="number"
         min="1"
-        max="100000"
+        max="1000000"
         :class="{ error: validationErrors.maxTokens }"
       />
       <span v-if="validationErrors.maxTokens" class="error-text">

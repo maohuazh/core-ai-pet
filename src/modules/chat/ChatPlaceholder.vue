@@ -35,20 +35,24 @@
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
-import { publishEvent } from '@/core/events';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
-interface StreamEvent {
-  turnId: string;
-  delta: any;
+interface DeltaEvent {
+  turn_id: string;
+  delta: {
+    type: string;
+    text?: string;
+    message?: string;
+    [key: string]: any;
+  };
 }
 
 interface DoneEvent {
-  turnId: string;
+  turn_id: string;
 }
 
 const visible = ref(false);
@@ -62,40 +66,40 @@ let unlistenStream: UnlistenFn | null = null;
 let unlistenDone: UnlistenFn | null = null;
 
 onMounted(async () => {
-  // Listen for llm.stream events
-  unlistenStream = await listen<StreamEvent>('llm.stream', (event) => {
-    const { turnId, delta } = event.payload;
+  // Listen for llm_delta events (emitted by Rust backend)
+  unlistenStream = await listen<DeltaEvent>('llm_delta', (event) => {
+    const { turn_id, delta } = event.payload;
 
-    if (turnId !== currentTurnId.value) {
+    if (turn_id !== currentTurnId.value) {
       return;
     }
 
-    if (delta.type === 'text' && delta.delta) {
+    if (delta.type === 'Text' && delta.text) {
       // Append text to the last assistant message or create a new one
       const lastMessage = messages.value[messages.value.length - 1];
       if (lastMessage && lastMessage.role === 'assistant') {
-        lastMessage.content += delta.delta;
+        lastMessage.content += delta.text;
       } else {
         messages.value.push({
           role: 'assistant',
-          content: delta.delta
+          content: delta.text
         });
       }
       scrollToBottom();
-    } else if (delta.type === 'error') {
+    } else if (delta.type === 'Error') {
       messages.value.push({
         role: 'assistant',
-        content: `[错误: ${delta.message}]`
+        content: `[错误: ${delta.message || '未知错误'}]`
       });
       scrollToBottom();
     }
   });
 
-  // Listen for llm.done events
-  unlistenDone = await listen<DoneEvent>('llm.done', (event) => {
-    const { turnId } = event.payload;
+  // Listen for llm_done events (emitted by Rust backend)
+  unlistenDone = await listen<DoneEvent>('llm_done', (event) => {
+    const { turn_id } = event.payload;
 
-    if (turnId !== currentTurnId.value) {
+    if (turn_id !== currentTurnId.value) {
       return;
     }
 

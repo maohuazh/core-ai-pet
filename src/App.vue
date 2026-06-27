@@ -1,9 +1,10 @@
 <template>
   <SettingsPanel v-if="isSettingsRoute" />
-  <div v-else class="pet-container">
+  <div v-else class="pet-container" @dblclick="openChat">
     <Live2DCanvas ref="canvasRef" />
     <WindowCloseButton v-if="showMenu" />
     <PetHoverMenu v-if="showMenu" :on-action="handleMenuAction" />
+    <ChatPlaceholder ref="chatRef" />
   </div>
 </template>
 
@@ -13,6 +14,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import Live2DCanvas from "./components/Live2DCanvas.vue";
 import WindowCloseButton from "./components/WindowCloseButton.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
+import ChatPlaceholder from "./modules/chat/ChatPlaceholder.vue";
 import SettingsPanel from "./components/settings/SettingsPanel.vue";
 import { invoke } from "@tauri-apps/api/core";
 import { modelRegistry } from "./core/model/ModelRegistry";
@@ -26,6 +28,7 @@ const isSettingsRoute = computed(() => {
 });
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
+const chatRef = ref<InstanceType<typeof ChatPlaceholder> | null>(null);
 const showMenu = ref(false);
 
 let unlistenStart: UnlistenFn | null = null;
@@ -146,6 +149,24 @@ onMounted(async () => {
   window.addEventListener("keydown", onTestKey);
   // Store for cleanup
   (window as any).__testKeyHandler = onTestKey;
+
+  // Keyboard shortcut: Ctrl+Shift+C to toggle chat window
+  const onChatShortcut = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+      e.preventDefault();
+      if (chatRef.value) {
+        // Toggle chat visibility
+        const chat = chatRef.value as any;
+        if (chat.visible) {
+          chat.hide();
+        } else {
+          chat.show();
+        }
+      }
+    }
+  };
+  window.addEventListener("keydown", onChatShortcut);
+  (window as any).__chatShortcutHandler = onChatShortcut;
 });
 
 onUnmounted(() => {
@@ -157,8 +178,18 @@ onUnmounted(() => {
   if ((window as any).__testKeyHandler) {
     window.removeEventListener("keydown", (window as any).__testKeyHandler);
   }
+  if ((window as any).__chatShortcutHandler) {
+    window.removeEventListener("keydown", (window as any).__chatShortcutHandler);
+  }
   if (hideTimeout) clearTimeout(hideTimeout);
 });
+
+/** Open chat window (called on double-click) */
+function openChat() {
+  if (chatRef.value) {
+    (chatRef.value as any).show();
+  }
+}
 
 /** Show a floating emoji effect above/near the pet */
 function showEffect(effectName: string, duration: number, position: string) {

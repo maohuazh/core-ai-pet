@@ -196,39 +196,48 @@ pub fn llm_delete_secret(secret_ref: String) -> Result<(), ErrorPayload> {
 
 /// 测试指定 role 的 LLM 连接是否可用
 ///
-/// 内部流程：
-/// 1. 加载 role 配置
-/// 2. 取 API key
-/// 3. 向 provider 发起极小请求（max_tokens=1）验证连通性 / 鉴权
+/// 支持两种模式：
+/// - 有 config 参数：用临时配置测试（不依赖已保存的文件）
+/// - 无 config 参数：从已保存的配置加载
 #[command]
-pub async fn llm_test_connection(role: String) -> Result<TestConnectionPayload, ErrorPayload> {
-    // 1. 加载配置
-    let cfg = config::load_llm_config(&role).map_err(|e| match e {
-        config::ConfigError::FileNotFound => ErrorPayload {
-            error: "file_not_found".to_string(),
-            message: "config.toml not found".to_string(),
-        },
-        config::ConfigError::RoleNotFound(r) => ErrorPayload {
-            error: "role_not_found".to_string(),
-            message: format!("role '{}' not configured", r),
-        },
-        other => ErrorPayload {
-            error: "config_error".to_string(),
-            message: other.to_string(),
-        },
-    })?;
+pub async fn llm_test_connection(
+    role: String,
+    config: Option<LLMConfigPayload>,
+    api_key: Option<String>,
+) -> Result<TestConnectionPayload, ErrorPayload> {
+    // 1. 加载配置：优先用传入的 config，否则从文件加载
+    let cfg: config::LLMConfig = match config {
+        Some(payload) => payload.into(),
+        None => config::load_llm_config(&role).map_err(|e| match e {
+            config::ConfigError::FileNotFound => ErrorPayload {
+                error: "file_not_found".to_string(),
+                message: "config.toml not found".to_string(),
+            },
+            config::ConfigError::RoleNotFound(r) => ErrorPayload {
+                error: "role_not_found".to_string(),
+                message: format!("role '{}' not configured", r),
+            },
+            other => ErrorPayload {
+                error: "config_error".to_string(),
+                message: other.to_string(),
+            },
+        })?,
+    };
 
-    // 2. 取 API key
-    let api_key = secret_store::SecretStore::get_secret(&cfg.secret_ref).map_err(|e| match e {
-        secret_store::SecretError::NotFound => ErrorPayload {
-            error: "secret_not_found".to_string(),
-            message: "API key not configured".to_string(),
-        },
-        other => ErrorPayload {
-            error: "secret_error".to_string(),
-            message: other.to_string(),
-        },
-    })?;
+    // 2. 取 API key：优先用传入的 api_key，否则从 keyring 加载
+    let api_key = match api_key {
+        Some(key) => key,
+        None => secret_store::SecretStore::get_secret(&cfg.secret_ref).map_err(|e| match e {
+            secret_store::SecretError::NotFound => ErrorPayload {
+                error: "secret_not_found".to_string(),
+                message: "API key not configured".to_string(),
+            },
+            other => ErrorPayload {
+                error: "secret_error".to_string(),
+                message: other.to_string(),
+            },
+        })?,
+    };
 
     // 3. 根据 provider 类型做 ping
     match cfg.provider.as_str() {

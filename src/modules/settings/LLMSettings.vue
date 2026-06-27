@@ -18,6 +18,11 @@ const settings = ref<LLMSettings>({
       name: 'chat_assistant',
       displayName: '聊天助手',
       config: null
+    },
+    {
+      name: 'message_assistant',
+      displayName: '消息助手',
+      config: null
     }
   ]
 });
