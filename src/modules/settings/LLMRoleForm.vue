@@ -26,6 +26,8 @@ const testing = ref(false);
 const testResult = ref<'success' | 'error' | null>(null);
 const testError = ref<string>('');
 const saving = ref(false);
+const saveResult = ref<'success' | 'error' | null>(null);
+const saveError = ref<string>('');
 const validationErrors = ref<Record<string, string>>({});
 
 // Initialize form from config
@@ -127,6 +129,8 @@ async function save() {
   }
 
   saving.value = true;
+  saveResult.value = null;
+  saveError.value = '';
 
   try {
     // If API key is provided, save it to keyring first
@@ -137,6 +141,10 @@ async function save() {
         plaintext: apiKey.value
       });
       secretRef = result.secret_ref;
+      // Update the existing secret ref so form knows key is configured
+      existingSecretRef.value = secretRef;
+      // Clear the API key input since it's now saved
+      apiKey.value = '';
     }
 
     const config: LLMConfig = {
@@ -152,8 +160,15 @@ async function save() {
     };
 
     emit('save', config);
+    saveResult.value = 'success';
+
+    // Auto-hide success message after 3 seconds
+    setTimeout(() => {
+      saveResult.value = null;
+    }, 3000);
   } catch (e: any) {
-    console.error('Save failed:', e);
+    saveResult.value = 'error';
+    saveError.value = e.toString();
   } finally {
     saving.value = false;
   }
@@ -268,6 +283,14 @@ async function save() {
     <div v-if="testResult === 'error'" class="test-error">
       ✗ 连接失败: {{ testError }}
     </div>
+
+    <div v-if="saveResult === 'success'" class="save-success">
+      ✓ 配置已保存
+    </div>
+
+    <div v-if="saveResult === 'error'" class="save-error">
+      ✗ 保存失败: {{ saveError }}
+    </div>
   </div>
 </template>
 
@@ -365,6 +388,23 @@ button:disabled {
 }
 
 .test-error {
+  padding: 12px;
+  background-color: #ffebee;
+  color: #c62828;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.save-success {
+  padding: 12px;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.save-error {
   padding: 12px;
   background-color: #ffebee;
   color: #c62828;

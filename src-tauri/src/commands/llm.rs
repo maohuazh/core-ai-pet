@@ -289,6 +289,19 @@ async fn anthropic_ping(
                     ok: false,
                     reason: Some("unauthorized".to_string()),
                 })
+            } else if status == 405 {
+                let body_text = r.text().await.unwrap_or_default();
+                if body_text.contains("Coding Plan") {
+                    Ok(TestConnectionPayload {
+                        ok: false,
+                        reason: Some("此 API 密钥为 Coding Plan 类型，仅支持通过编码工具使用。请使用普通 API 密钥（从 console.anthropic.com 获取）".to_string()),
+                    })
+                } else {
+                    Ok(TestConnectionPayload {
+                        ok: false,
+                        reason: Some(format!("http_405: {}", truncate(&body_text, 200))),
+                    })
+                }
             } else if status == 429 {
                 Ok(TestConnectionPayload {
                     ok: false,
