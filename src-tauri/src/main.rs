@@ -7,6 +7,10 @@ mod services;
 
 use tauri::{AppHandle, Manager};
 use commands::event::{emit_event, subscribe_event};
+use commands::llm::{
+    llm_delete_secret, llm_get_secret, llm_invoke, llm_load_config, llm_save_config,
+    llm_save_secret, llm_test_connection,
+};
 use commands::plugin::{plugin_disable, plugin_enable, plugin_list};
 use commands::settings::{
     delete_action_mapping, delete_chat_platform, delete_email_account, delete_jira_connection,
@@ -114,6 +118,14 @@ fn main() {
             get_available_expressions,
             // Settings - Window commands
             open_settings_window,
+            // LLM commands
+            llm_load_config,
+            llm_save_config,
+            llm_get_secret,
+            llm_save_secret,
+            llm_delete_secret,
+            llm_test_connection,
+            llm_invoke,
         ])
         .setup(|app| {
             // Apply native window styles for desktop pet behavior
