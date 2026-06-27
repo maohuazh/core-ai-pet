@@ -30,10 +30,10 @@
 
 ## 4. 前端：核心类型与 Registry
 
-- [ ] 4.1 在 `src/core/llm/` 下新增 `role.ts`（`LLMRole` 联合类型）/ `types.ts`（`LLMConfig` / `UnifiedRequest` / `UnifiedDelta` / `LLMProvider` 接口）/ `registry.ts`（`LLMRegistry` 单例）。
-- [ ] 4.2 `LLMRegistry` 实现 `register` / `resolve` / `listRoles`，Map 存储，幂等覆盖 + WARN 日志。
-- [ ] 4.3 单测：Registry 的 register / resolve / duplicate / unknown / list。
-- [ ] 4.4 单测：UnifiedDelta 8 种 type 的 TypeScript 类型检查（`vitest typecheck`）。
+- [x] 4.1 在 `src/core/llm/` 下新增 `role.ts`（`LLMRole` 联合类型）/ `types.ts`（`LLMConfig` / `UnifiedRequest` / `UnifiedDelta` / `LLMProvider` 接口）/ `registry.ts`（`LLMRegistry` 单例）。
+- [x] 4.2 `LLMRegistry` 实现 `register` / `resolve` / `listRoles`，Map 存储，幂等覆盖 + WARN 日志。
+- [x] 4.3 单测：Registry 的 register / resolve / duplicate / unknown / list。
+- [x] 4.4 单测：UnifiedDelta 8 种 type 的 TypeScript 类型检查（`vitest typecheck`）。
 
 ## 5. 前端：Provider Adapter (Anthropic)
 
