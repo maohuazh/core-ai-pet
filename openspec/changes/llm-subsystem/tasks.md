@@ -25,8 +25,8 @@
 - [x] 3.4 实现 Anthropic 事件 → `UnifiedDelta` 归一化：text content → text delta；thinking content → thinking delta；usage → usage delta；message_stop → stop delta；error → error delta。
 - [x] 3.5 实现 `ping()`：发送极小请求（max_tokens=1, prompt="hi"），返回 ok/reason。
 - [x] 3.6 实现 `estimateCost()`：按 model 查表估算，未知 model 返回 0。
-- [ ] 3.7 集成测试：用 mock server（wiremock 或类似）模拟 SSE，验证 5 种事件归一化。
-- [ ] 3.8 集成测试：ping 的 401 / 网络错误场景。
+- [x] 3.7 集成测试：用 mock server（wiremock 或类似）模拟 SSE，验证 5 种事件归一化。
+- [x] 3.8 集成测试：ping 的 401 / 网络错误场景。
 
 ## 4. 前端：核心类型与 Registry
 
