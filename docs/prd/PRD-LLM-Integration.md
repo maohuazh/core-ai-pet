@@ -5,7 +5,7 @@
 > 状态: 草案
 > 关联: [PRD-Settings-Panel](./PRD-Settings-Panel.md)
 >
-> **v1.5 变更 (聊天窗口 + 会话 + 工作区 + 上下文管理)：** 新增 §4.21 Context 管理 (sliding / summarize / smart)、§4.22 Session & Workspace 模型 (含 scratch 沙箱、workspace 单一字段、MCP 单层全局)、§4.23 多窗口与全局热键；§5.13 Chat 窗口三栏布局 (左栏固定 240px 不折叠、"+ 新会话" 入口移到窗口顶栏右侧)、§5.14 热键冲突 toast、§5.15 输入框下方 workspace chip；§4.8 MCP 显式锁定"单层全局"作用域；§6.5 新增 `scratch/<session_id>/` 目录；TOML schema 增 `[chat_window]` / `[context_management]` 块；独立热键文件 `~/.core-ai-pet/hotkeys.toml`（含二期预留键位）；新增 §13 二期 (Phase 2) 规划：`Alt+N` / `Alt+↑↓` session 切换、Thinking/Tool 块显示开关；Goals +G25~G28；M12。明确**不集成 Claude Code CLI / Agent SDK**，全部自研 Harness。
+> **v1.5 变更 (聊天窗口 + 会话 + 工作区 + 上下文管理)：** 新增 §4.21 Context 管理 (sliding / summarize / smart)、§4.22 Session & Workspace 模型 (含 scratch 沙箱、workspace 单一字段、MCP 单层全局)、§4.23 多窗口与全局热键；§5.13 Chat 窗口三栏布局 (左栏固定 240px 不折叠、"+ 新会话" 入口移到窗口顶栏右侧)、§5.13.1 Preview Provider 注册接口 (registry + 4 内置 + 二期扩展样例)、§5.14 热键冲突 toast、§5.15 输入框下方 workspace chip；§4.8 MCP 显式锁定"单层全局"作用域；§6.5 新增 `scratch/<session_id>/` 目录；TOML schema 增 `[chat_window]` / `[context_management]` 块；独立热键文件 `~/.core-ai-pet/hotkeys.toml`（含二期预留键位）；新增 §13 二期 (Phase 2) 规划：`Alt+N` / `Alt+↑↓` session 切换、Thinking/Tool 块显示开关；Goals +G25~G28；M12。明确**不集成 Claude Code CLI / Agent SDK**，全部自研 Harness。
 >
 > **v1.4 变更 (安全 / 隐私 / 成本 / 可观测性)：** 新增 §1.3 威胁模型、§4.17 Egress 策略、§4.18 PII 脱敏、§4.19 成本 / 配额闸门、§4.20 隐私模式、§6.6 审计日志、§6.7 SLO；TOML schema 增 `egress` / `pii` / `quota` / `audit` / `privacy_mode` 块；§5.11 隐私 toggle UI、§5.12 成本仪表盘；Goals +G21~G24。
 >
@@ -1654,6 +1654,143 @@ chat_assistant 槽位卡片在 Persona 下方追加 3 个折叠区，**默认全
 | `Alt+↑` / `Alt+↓` | 在左栏 session 列表中向上 / 下切换 | **二期** (§13.1) |
 | `Ctrl+L` | focus session 搜索 | **二期** (§13.3) |
 
+#### 5.13.1 右栏 Preview Provider 注册接口
+
+v1.5 内置 4 类 provider（markdown / html / text / binary 占位）已能覆盖常见诉求。但**新增格式时应只 register，不改 dispatcher** — 强制走注册接口，避免后续每加一种格式就改 4 处分支。
+
+**接口定义** (`src/modules/chat/preview/types.ts`)：
+
+```ts
+export interface PreviewProvider {
+  /** 唯一 id，用于 dedup 和日志 */
+  id: string;
+  /** UI 显示名（用于"另存为"对话框筛选、错误提示） */
+  displayName: string;
+  /** 优先级：高者先匹配；内置 markdown=100 / html=100 / text=10 / binary=0 (兜底) */
+  priority: number;
+  /**
+   * 判断能否渲染。可基于扩展名、mime、首字节 (magic number) 任意组合。
+   * 同步函数，禁止 IO — 把 IO 留到 render 内做。
+   */
+  canRender(input: { filename: string; mime?: string; sizeBytes: number; firstBytes?: Uint8Array }): boolean;
+  /** 实际 Vue 组件，由 dispatcher (`PreviewPane.vue`) 动态挂载 */
+  component: () => Promise<{ default: Component }>;  // 支持 dynamic import 拆 chunk
+}
+
+export interface PreviewProviderProps {
+  filename: string;
+  content: Uint8Array | string;  // 文本类传 string；二进制传 Uint8Array
+  meta: { mime?: string; sizeBytes: number; sourceUri?: string };
+}
+```
+
+**Registry** (`src/modules/chat/preview/registry.ts`)：
+
+```ts
+class PreviewProviderRegistry {
+  private providers: PreviewProvider[] = [];
+
+  register(p: PreviewProvider): void { /* 按 priority 倒序插入；id 重复抛错 */ }
+  unregister(id: string): void { /* 用于热卸载（v1 不暴露，但实现保留） */ }
+
+  /** 返回最高优先级的匹配 provider；找不到时回落到内置 binary 占位 */
+  resolve(input: PreviewInput): PreviewProvider { /* ... */ }
+}
+
+export const previewRegistry = new PreviewProviderRegistry();
+```
+
+**内置 4 个 provider 注册**（`src/modules/chat/preview/builtins.ts`，App 启动时 register）：
+
+```ts
+previewRegistry.register({
+  id: 'builtin.markdown', displayName: 'Markdown', priority: 100,
+  canRender: ({ filename, mime }) =>
+    /\.(md|markdown)$/i.test(filename) || mime === 'text/markdown',
+  component: () => import('./MarkdownPreview.vue'),
+});
+
+previewRegistry.register({
+  id: 'builtin.html', displayName: 'HTML', priority: 100,
+  canRender: ({ filename, mime }) =>
+    /\.html?$/i.test(filename) || mime === 'text/html',
+  component: () => import('./HtmlPreview.vue'),
+});
+
+previewRegistry.register({
+  id: 'builtin.text', displayName: 'Text', priority: 10,
+  canRender: ({ filename, mime, firstBytes }) =>
+    isProbablyText(mime, firstBytes) || /\.(txt|json|csv|log|ya?ml|toml|ini|xml)$/i.test(filename),
+  component: () => import('./TextPreview.vue'),
+});
+
+previewRegistry.register({
+  id: 'builtin.binary', displayName: '二进制', priority: 0,  // 兜底
+  canRender: () => true,
+  component: () => import('./BinaryPlaceholder.vue'),
+});
+```
+
+**扩展示例（二期 / 用户插件式）：**
+
+```ts
+// 例：图片预览（PNG / JPEG / GIF / WebP）
+previewRegistry.register({
+  id: 'image-viewer', displayName: 'Image', priority: 80,
+  canRender: ({ filename, mime }) =>
+    /^image\//.test(mime ?? '') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(filename),
+  component: () => import('./ImagePreview.vue'),
+});
+
+// 例：PDF（pdfjs-dist 已是粘贴附件用，此处复用）
+previewRegistry.register({
+  id: 'pdf-viewer', displayName: 'PDF', priority: 80,
+  canRender: ({ filename, mime }) =>
+    mime === 'application/pdf' || /\.pdf$/i.test(filename),
+  component: () => import('./PdfPreview.vue'),
+});
+```
+
+**`PreviewPane.vue` Dispatcher** (变为单一分发，不含格式逻辑)：
+
+```vue
+<script setup lang="ts">
+const provider = computed(() => previewRegistry.resolve({
+  filename: currentTab.value.filename,
+  mime: currentTab.value.mime,
+  sizeBytes: currentTab.value.sizeBytes,
+  firstBytes: currentTab.value.firstBytes,
+}));
+const AsyncComponent = computed(() => defineAsyncComponent(provider.value.component));
+</script>
+
+<template>
+  <component :is="AsyncComponent" v-bind="props" />
+</template>
+```
+
+**安全 / 性能约束（强约束）：**
+
+- **任何 provider 都不应直接 `eval` / 拼 innerHTML 不过滤的用户内容**。需要 HTML 输出的，必须经 `DOMPurify` 或走 iframe `sandbox`（与 `HtmlPreview.vue` 同等约束）。
+- **provider component 必须支持 lazy chunk 拆分** (`() => import(...)`)，避免某个重型 viewer (如 PDF) 影响首屏。
+- **`canRender` 必须纯同步、无副作用**。需要嗅探内容时只允许读 `firstBytes`（前 512 字节，由 dispatcher 一次性预读）。
+- **provider 抛错 → dispatcher catch 后回落到 binary 占位** + 一次性 toast `预览失败：<provider.id>`；不影响 chat 主流程。
+- **provider 上限 32 个**（防 register 风暴）；超出时新 register 抛错。
+
+**v1.5 范围与二期边界：**
+
+| v1.5 | 二期 |
+|------|------|
+| Registry + 接口 + 4 个内置 provider 落地 | 图片 / PDF / JSON tree / diff viewer 等新 provider register 进来 |
+| `unregister` 实现保留但不暴露 API | 暴露 "插件" UI 让用户启停 provider（与 MCP UI 同级） |
+| `firstBytes` 嗅探（512 字节） | 完整 magic-number 库（如 `file-type` 包） |
+| 单 provider 抛错回落 | UI 显示"切换其他 provider"下拉（手动覆写匹配结果） |
+
+**模块依赖**（强约束，对应 §7.1 列条）：
+
+- `src/modules/chat/preview/` 内的 provider 模块**绝不**导入 `core/llm/`、`core/events/`、其它 `modules/`，只依赖 Vue + DOMPurify + 渲染库。
+- Dispatcher 不内联任何具体格式判断逻辑（违反则 PR review 打回）。
+
 ### 5.14 全局热键冲突 toast
 
 App 启动时 Rust 尝试注册 `hotkeys.open_chat`。注册失败 → event 通知前端：
@@ -2208,6 +2345,7 @@ src/core/llm/                                # 前端 Harness
     ├── context.compactor.spec.ts            # NEW (v1.5) threshold 触发 + smart 优先级 + keep_last_n
     ├── context.summarizer.spec.ts           # NEW (v1.5) 摘要段前缀 + cheap model 选择
     ├── window.lru.spec.ts                   # NEW (v1.5) focus 上报 + destroyed 清栈
+    ├── preview.registry.spec.ts             # NEW (v1.5) priority 排序 + canRender dispatch + 兜底 + 抛错回落 + id 重复
     └── content.extract.spec.ts
 
 src/core/tools/                              # === NEW (v1.1) === 内置 Tool 实现
@@ -2246,12 +2384,15 @@ src/modules/chat/                            # === NEW (v1.5) Chat 窗口 ===
 │   ├── ChatInputArea.vue                    # 复用 components/chat/ChatInput.vue 并加 status bar
 │   └── WorkspaceChip.vue                    # §5.15 chip 两态行为
 ├── preview/
-│   ├── PreviewPane.vue                      # 右栏容器；可拉伸 + 折叠
+│   ├── PreviewPane.vue                      # 右栏容器；可拉伸 + 折叠 + dispatcher (走 registry.resolve)
 │   ├── FileTabs.vue                         # tabs + ...▾ 溢出下拉
+│   ├── types.ts                             # PreviewProvider 接口 + PreviewProviderProps (§5.13.1)
+│   ├── registry.ts                          # PreviewProviderRegistry 单例 (priority 排序 + dedup)
+│   ├── builtins.ts                          # App 启动时 register 内置 4 个 provider
 │   ├── MarkdownPreview.vue                  # markdown-it + KaTeX + highlight.js
 │   ├── HtmlPreview.vue                      # iframe sandbox="allow-same-origin"
 │   ├── TextPreview.vue                      # 等宽 + 行号 + highlight
-│   └── BinaryPlaceholder.vue                # "无法预览此格式"
+│   └── BinaryPlaceholder.vue                # "无法预览此格式" (priority=0 兜底)
 └── hotkey/
     └── HotkeyConflictToast.vue              # §5.14 toast
 
@@ -2333,6 +2474,7 @@ package.json 新增依赖：
   markdown-it                  # v1.5 右栏渲染
   highlight.js                 # v1.5 代码块
   katex                        # v1.5 数学公式
+  dompurify                    # v1.5 §5.13.1 provider 内 HTML 注入防御 (markdown 渲染输出经它)
   @tauri-apps/plugin-global-shortcut  # v1.5 全局热键 (JS 侧)
 ```
 
