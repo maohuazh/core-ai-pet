@@ -20,6 +20,8 @@ env_logger = "0.11"
 raw-window-handle = "0.6"
 windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Graphics_Gdi"] }
 uuid = { version = "1", features = ["v4"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
+toml = "0.8"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified

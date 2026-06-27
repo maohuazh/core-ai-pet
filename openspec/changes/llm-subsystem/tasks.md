@@ -1,7 +1,7 @@
 ## 1. 后端基础：配置与密钥
 
 - [x] 1.1 在 `src-tauri/src/infrastructure/` 下创建 `llm/` 目录骨架（`mod.rs` + `config.rs` + `secret_store.rs`）。
-- [ ] 1.2 在 `Cargo.toml` 新增 `keyring` / `toml` / `serde` 依赖（`toml` 与 `serde` 已存在则仅 `keyring`）。
+- [x] 1.2 在 `Cargo.toml` 新增 `keyring` / `toml` / `serde` 依赖（`toml` 与 `serde` 已存在则仅 `keyring`）。
 - [ ] 1.3 实现 `secret_store.rs`：`save_secret(role, plaintext) -> secret_ref` / `get_secret(secret_ref) -> plaintext` / `delete_secret(secret_ref)`，Keyring service=`coreai-llm`。
 - [ ] 1.4 实现 DPAPI fallback：Keyring 失败时写 `~/.core-ai-pet/.secrets/<secret_ref>`，Windows 用 DPAPI，Unix 用 mode 0600。
 - [ ] 1.5 实现 `config.rs`：`load_llm_config(role) -> LLMConfig` / `save_llm_config(role, cfg)`，TOML 段 `[llm.<role>]` 嵌套解析。
