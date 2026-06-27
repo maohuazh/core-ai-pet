@@ -1,4 +1,5 @@
 pub mod event;
+pub mod llm;
 pub mod plugin;
 pub mod settings;
 pub mod state;
