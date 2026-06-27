@@ -23,4 +23,6 @@ export type {
 } from './types';
 export { AnthropicProvider, anthropicProvider } from './providers';
 export { initializeLLM, getProviderForRole } from './setup';
+export { llm, invoke, RoleNotFoundError, ConfigNotFoundError, SecretNotFoundError } from './client';
+export type { InvokeOptions } from './client';
 

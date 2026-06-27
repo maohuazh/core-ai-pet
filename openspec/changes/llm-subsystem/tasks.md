@@ -45,10 +45,10 @@
 
 ## 6. 前端：Facade
 
-- [ ] 6.1 在 `src/core/llm/client.ts` 实现 `llm.invoke(role, req, opts?)`：解析 role → Registry → 取 LLMConfig → 调 Provider → 返回流。
-- [ ] 6.2 错误处理：`RoleNotFoundError` / `ConfigNotFoundError` / `SecretNotFoundError`，不发起网络。
-- [ ] 6.3 AbortController 支持：`opts.abort` 信号传入 ProviderCallContext。
-- [ ] 6.4 单测：正常路径 / 三种错误 / abort / provider 5xx / provider 4xx（透传 error delta）。
+- [x] 6.1 在 `src/core/llm/client.ts` 实现 `llm.invoke(role, req, opts?)`：解析 role → Registry → 取 LLMConfig → 调 Provider → 返回流。
+- [x] 6.2 错误处理：`RoleNotFoundError` / `ConfigNotFoundError` / `SecretNotFoundError`，不发起网络。
+- [x] 6.3 AbortController 支持：`opts.abort` 信号传入 ProviderCallContext。
+- [x] 6.4 单测：正常路径 / 三种错误 / abort / provider 5xx / provider 4xx（透传 error delta）。
 
 ## 7. 前端：设置面板 UI
 
