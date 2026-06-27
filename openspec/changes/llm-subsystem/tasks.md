@@ -4,7 +4,7 @@
 - [x] 1.2 在 `Cargo.toml` 新增 `keyring` / `toml` / `serde` 依赖（`toml` 与 `serde` 已存在则仅 `keyring`）。
 - [x] 1.3 实现 `secret_store.rs`：`save_secret(role, plaintext) -> secret_ref` / `get_secret(secret_ref) -> plaintext` / `delete_secret(secret_ref)`，Keyring service=`coreai-llm`。
 - [x] 1.4 实现 DPAPI fallback：Keyring 失败时写 `~/.core-ai-pet/.secrets/<secret_ref>`，Windows 用 DPAPI，Unix 用 mode 0600。
-- [ ] 1.5 实现 `config.rs`：`load_llm_config(role) -> LLMConfig` / `save_llm_config(role, cfg)`，TOML 段 `[llm.<role>]` 嵌套解析。
+- [x] 1.5 实现 `config.rs`：`load_llm_config(role) -> LLMConfig` / `save_llm_config(role, cfg)`，TOML 段 `[llm.<role>]` 嵌套解析。
 - [ ] 1.6 单测：5 种 TOML 错误（缺失必填字段 / 非法类型 / 空段 / 嵌套错 / 文件不存在）的行为。
 - [ ] 1.7 单测：secret_store 的存/取/删 + fallback 路径 + 文件权限 0600（Unix only）。
 
