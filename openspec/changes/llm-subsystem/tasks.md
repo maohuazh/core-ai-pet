@@ -19,12 +19,12 @@
 
 ## 3. 后端：Anthropic Provider (Rust)
 
-- [ ] 3.1 在 `src-tauri/src/infrastructure/llm/` 新增 `provider/anthropic.rs`。
-- [ ] 3.2 实现 `invoke()`：`reqwest::Client::post(base_url + "/v1/messages")`，header 含 `x-api-key` / `anthropic-version` / `content-type`，body 含 `messages` / `model` / `stream=true` / `max_tokens`。
-- [ ] 3.3 实现 SSE 流解析：按 `event:` 行 + `data:` 行解析，识别 `message_start` / `content_block_delta` / `message_delta` / `message_stop` / `error`。
-- [ ] 3.4 实现 Anthropic 事件 → `UnifiedDelta` 归一化：text content → text delta；thinking content → thinking delta；usage → usage delta；message_stop → stop delta；error → error delta。
-- [ ] 3.5 实现 `ping()`：发送极小请求（max_tokens=1, prompt="hi"），返回 ok/reason。
-- [ ] 3.6 实现 `estimateCost()`：按 model 查表估算，未知 model 返回 0。
+- [x] 3.1 在 `src-tauri/src/infrastructure/llm/` 新增 `provider/anthropic.rs`。
+- [x] 3.2 实现 `invoke()`：`reqwest::Client::post(base_url + "/v1/messages")`，header 含 `x-api-key` / `anthropic-version` / `content-type`，body 含 `messages` / `model` / `stream=true` / `max_tokens`。
+- [x] 3.3 实现 SSE 流解析：按 `event:` 行 + `data:` 行解析，识别 `message_start` / `content_block_delta` / `message_delta` / `message_stop` / `error`。
+- [x] 3.4 实现 Anthropic 事件 → `UnifiedDelta` 归一化：text content → text delta；thinking content → thinking delta；usage → usage delta；message_stop → stop delta；error → error delta。
+- [x] 3.5 实现 `ping()`：发送极小请求（max_tokens=1, prompt="hi"），返回 ok/reason。
+- [x] 3.6 实现 `estimateCost()`：按 model 查表估算，未知 model 返回 0。
 - [ ] 3.7 集成测试：用 mock server（wiremock 或类似）模拟 SSE，验证 5 种事件归一化。
 - [ ] 3.8 集成测试：ping 的 401 / 网络错误场景。
 
