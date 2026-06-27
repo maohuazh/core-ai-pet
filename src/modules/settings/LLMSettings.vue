@@ -41,10 +41,21 @@ async function loadConfigs() {
   try {
     for (const role of settings.value.roles) {
       try {
-        const config = await invoke<LLMConfig>('llm_load_config', {
+        // Backend returns flat LLMConfigPayload, transform to nested LLMConfig
+        const flat = await invoke<any>('llm_load_config', {
           role: role.name
         });
-        role.config = config;
+        role.config = {
+          provider: flat.provider,
+          model: flat.model,
+          base_url: flat.base_url || '',
+          secret_ref: flat.secret_ref,
+          role: flat.role,
+          params: {
+            temperature: flat.temperature,
+            max_tokens: flat.max_tokens
+          }
+        };
       } catch (e: any) {
         // Config not found, leave as null
         role.config = null;
@@ -59,9 +70,20 @@ async function loadConfigs() {
 
 async function handleSave(roleName: string, config: LLMConfig) {
   try {
+    // Flatten config to match LLMConfigPayload structure expected by backend
+    const flatConfig = {
+      role: roleName,
+      provider: config.provider,
+      model: config.model,
+      base_url: config.base_url,
+      secret_ref: config.secret_ref,
+      temperature: config.params.temperature,
+      max_tokens: config.params.max_tokens
+    };
+
     await invoke('llm_save_config', {
       role: roleName,
-      config
+      cfg: flatConfig
     });
 
     // Update local state

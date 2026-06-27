@@ -88,17 +88,15 @@ async function testConnection() {
   testError.value = '';
 
   try {
-    // Build config payload
+    // Build flat config payload (matching LLMConfigPayload structure)
     const tempConfig = {
+      role: props.role,
       provider: provider.value,
       model: model.value,
       base_url: baseUrl.value,
-      secret_ref: existingSecretRef.value || 'temp', // Will be overridden by api_key param
-      role: props.role,
-      params: {
-        temperature: temperature.value,
-        max_tokens: maxTokens.value
-      }
+      secret_ref: existingSecretRef.value || 'temp',
+      temperature: temperature.value,
+      max_tokens: maxTokens.value
     };
 
     // Call test connection with config and optional API key
