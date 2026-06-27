@@ -2,6 +2,7 @@ import { getProviderForRole } from './setup';
 import type { LLMRole } from './role';
 import type { UnifiedRequest, UnifiedDelta } from './types';
 import { llmRegistry } from './registry';
+import { publishEvent } from '../events';
 
 /**
  * Custom error types for LLM operations
@@ -81,6 +82,9 @@ export async function invoke(
     opts.abort.addEventListener('abort', abortHandler, { once: true });
   }
 
+  // Generate turn ID for tracking
+  const turnId = crypto.randomUUID();
+
   // Invoke the provider
   try {
     await provider.invoke(
@@ -96,8 +100,16 @@ export async function invoke(
         }
       },
       request,
-      onDelta
+      (delta: UnifiedDelta) => {
+        // Emit stream event via eventBus
+        await publishEvent('llm.stream', 'llm-client', { turnId, delta });
+        // Call the user-provided callback
+        onDelta(delta);
+      }
     );
+
+    // Emit done event
+    await publishEvent('llm.done', 'llm-client', { turnId });
   } catch (error) {
     // Check if it's an abort error
     if (opts?.abort?.aborted) {

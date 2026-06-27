@@ -61,14 +61,14 @@
 
 ## 8. 前端：Trigger 集成 + Chat 浮层
 
-- [ ] 8.1 在 `src/core/events/triggerHandler.ts` 新增 `llm.message` / `llm.invoke` 事件分支，调用 `llm.invoke()`。
-- [ ] 8.2 Facade 流式过程中 emit `llm.stream` 事件到 eventBus（含 `turn_id` + delta）。
-- [ ] 8.3 流结束 emit `llm.done`。
-- [ ] 8.4 在 `App.vue` 新增 `ChatPlaceholder.vue` 浮层（400×300，右上角，固定位置）。
-- [ ] 8.5 ChatPlaceholder 监听 `llm.stream`，追加 text delta 到显示；监听 `llm.done` 显示完成态。
-- [ ] 8.6 浮层自动滚动到底部（除非用户手动上滚）。
-- [ ] 8.7 浮层关闭按钮：隐藏不销毁，下次触发再显示。
-- [ ] 8.8 单测：triggerHandler 三个 trigger_key 的分发逻辑。
+- [x] 8.1 在 `src/core/events/triggerHandler.ts` 新增 `llm.message` / `llm.invoke` 事件分支，调用 `llm.invoke()`。
+- [x] 8.2 Facade 流式过程中 emit `llm.stream` 事件到 eventBus（含 `turn_id` + delta）。
+- [x] 8.3 流结束 emit `llm.done`。
+- [x] 8.4 在 `App.vue` 新增 `ChatPlaceholder.vue` 浮层（400×300，右上角，固定位置）。
+- [x] 8.5 ChatPlaceholder 监听 `llm.stream`，追加 text delta 到显示；监听 `llm.done` 显示完成态。
+- [x] 8.6 浮层自动滚动到底部（除非用户手动上滚）。
+- [x] 8.7 浮层关闭按钮：隐藏不销毁，下次触发再显示。
+- [x] 8.8 单测：triggerHandler 三个 trigger_key 的分发逻辑。
 
 ## 9. 端到端验证
 

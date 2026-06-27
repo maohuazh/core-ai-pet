@@ -21,6 +21,8 @@ class TriggerHandler {
     "jira-task-completed": "task_completed",
     "jira-task-deadline-approaching": "task_approaching_deadline",
     "jira-task-overdue": "task_overdue",
+    "llm.message": "llm.message",
+    "llm.invoke": "llm.invoke",
   };
 
   /**
@@ -48,6 +50,12 @@ class TriggerHandler {
    * Fire a trigger and execute the configured action (public for testing)
    */
   async fireTrigger(triggerKey: TriggerKey): Promise<void> {
+    // Handle LLM triggers separately
+    if (triggerKey === "llm.message" || triggerKey === "llm.invoke") {
+      await this.handleLLmTrigger(triggerKey);
+      return;
+    }
+
     const activeModelId = petStore.currentModel.value.id;
     if (!activeModelId) {
       console.warn("No active model, skipping trigger");
@@ -115,6 +123,15 @@ class TriggerHandler {
     } catch (e) {
       console.error(`Failed to fire trigger ${triggerKey}:`, e);
     }
+  }
+
+  /**
+   * Handle LLM-related triggers
+   */
+  private async handleLLmTrigger(triggerKey: TriggerKey): Promise<void> {
+    console.log(`LLM trigger fired: ${triggerKey}`);
+    // LLM triggers don't execute pet actions, they're handled by the chat UI
+    // This is just a placeholder for potential future pet reactions to LLM events
   }
 
   /**

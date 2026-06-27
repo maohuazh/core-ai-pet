@@ -29,7 +29,9 @@ export type TriggerKey =
   | "task_in_progress"
   | "task_completed"
   | "task_approaching_deadline"
-  | "task_overdue";
+  | "task_overdue"
+  | "llm.message"
+  | "llm.invoke";
 
 // Frontend form state
 export interface MappingFormData {
