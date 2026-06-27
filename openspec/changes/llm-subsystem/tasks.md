@@ -52,12 +52,12 @@
 
 ## 7. 前端：设置面板 UI
 
-- [ ] 7.1 在 `src/modules/settings/` 下新增 `LLMSettings.vue` + `LLMRoleForm.vue` 组件。
-- [ ] 7.2 在现有设置面板的 tab 栏新增 `🤖 AI 模型` tab（若 tab 超过 6 个启用横向滚动）。
-- [ ] 7.3 LLMRoleForm 渲染 provider 下拉（M1 仅 anthropic）+ model 输入 + base_url 输入 + secret 输入（type=password）+ params 表单。
-- [ ] 7.4 实现"测试连接"按钮：点击 → loading → 成功绿勾 / 失败红叉 + reason。
-- [ ] 7.5 实现"保存"按钮：校验 + `invoke('llm_save_config')` + 写失败回滚 UI。
-- [ ] 7.6 单测：表单校验（必填项 / URL 格式）+ 保存流程（mock Tauri invoke）。
+- [x] 7.1 在 `src/modules/settings/` 下新增 `LLMSettings.vue` + `LLMRoleForm.vue` 组件。
+- [x] 7.2 在现有设置面板的 tab 栏新增 `🤖 AI 模型` tab（若 tab 超过 6 个启用横向滚动）。
+- [x] 7.3 LLMRoleForm 渲染 provider 下拉（M1 仅 anthropic）+ model 输入 + base_url 输入 + secret 输入（type=password）+ params 表单。
+- [x] 7.4 实现"测试连接"按钮：点击 → loading → 成功绿勾 / 失败红叉 + reason。
+- [x] 7.5 实现"保存"按钮：校验 + `invoke('llm_save_config')` + 写失败回滚 UI。
+- [x] 7.6 单测：表单校验（必填项 / URL 格式）+ 保存流程（mock Tauri invoke）。
 
 ## 8. 前端：Trigger 集成 + Chat 浮层
 

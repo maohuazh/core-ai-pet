@@ -40,4 +40,8 @@ export default defineConfig({
       "@services": resolve(__dirname, "src/services"),
     },
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
 });
