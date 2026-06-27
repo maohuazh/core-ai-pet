@@ -2,8 +2,10 @@
 
 mod commands;
 mod core;
-mod infrastructure;
 mod services;
+
+// Re-export infrastructure from lib
+use core_ai_pet::infrastructure;
 
 use tauri::{AppHandle, Manager};
 use commands::event::{emit_event, subscribe_event};
