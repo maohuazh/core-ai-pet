@@ -45,6 +45,7 @@ async function loadConfigs() {
         const flat = await invoke<any>('llm_load_config', {
           role: role.name
         });
+        console.log('[LLM] Loaded config for', role.name, ':', flat);
         role.config = {
           provider: flat.provider,
           model: flat.model,
@@ -58,6 +59,7 @@ async function loadConfigs() {
         };
       } catch (e: any) {
         // Config not found, leave as null
+        console.log('[LLM] No config for', role.name, ':', e);
         role.config = null;
       }
     }

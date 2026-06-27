@@ -150,9 +150,9 @@ onMounted(async () => {
   // Store for cleanup
   (window as any).__testKeyHandler = onTestKey;
 
-  // Keyboard shortcut: Ctrl+Shift+C to toggle chat window
+  // Keyboard shortcut: Ctrl+Alt+N to toggle chat window
   const onChatShortcut = (e: KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'n') {
       e.preventDefault();
       if (chatRef.value) {
         // Toggle chat visibility

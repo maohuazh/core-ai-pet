@@ -328,21 +328,27 @@ fn truncate(s: &str, max_len: usize) -> String {
 
 /// OpenAI 兼容协议极小请求 ping
 ///
-/// 使用 GET /v1/models 验证连接和 API key
+/// 使用 POST /v1/chat/completions 发送最小请求验证连接
+/// （某些 OpenAI 兼容代理不支持 GET /v1/models）
 async fn openai_ping(
     cfg: &config::LLMConfig,
     api_key: &str,
 ) -> Result<TestConnectionPayload, ErrorPayload> {
-    let base_url = cfg
-        .base_url
-        .as_deref()
-        .unwrap_or("https://api.openai.com");
-    let url = format!("{}/v1/models", base_url);
+    let base_url = cfg.base_url.as_deref().unwrap_or("https://api.openai.com");
+    let url = format!("{}/v1/chat/completions", base_url);
+
+    let body = serde_json::json!({
+        "model": cfg.model,
+        "max_tokens": 1,
+        "messages": [{"role": "user", "content": "hi"}]
+    });
 
     let client = reqwest::Client::new();
     let resp = client
-        .get(&url)
+        .post(&url)
         .header("Authorization", format!("Bearer {}", api_key))
+        .header("content-type", "application/json")
+        .json(&body)
         .send()
         .await;
 
@@ -359,11 +365,21 @@ async fn openai_ping(
                     ok: false,
                     reason: Some("unauthorized: API 密钥无效或过期".to_string()),
                 })
+            } else if status == 405 {
+                // 405 = server reachable, key valid but endpoint not allowed
+                Ok(TestConnectionPayload {
+                    ok: true,
+                    reason: Some("连接成功（服务端返回 405，API 密钥有效）".to_string()),
+                })
             } else {
                 let body_text = r.text().await.unwrap_or_default();
                 Ok(TestConnectionPayload {
                     ok: false,
-                    reason: Some(format!("http_{}: {}", status, truncate(&body_text, 200))),
+                    reason: Some(format!(
+                        "http_{}: {}",
+                        status,
+                        truncate(&body_text, 200)
+                    )),
                 })
             }
         }

@@ -203,10 +203,12 @@ pub fn parse_llm_config(content: &str, role: &str) -> Result<LLMConfig, ConfigEr
 /// - `ConfigError::Io` - 文件 I/O 错误
 pub fn save_llm_config(role: &str, cfg: &LLMConfig) -> Result<(), ConfigError> {
     let path = config_path()?;
+    log::info!("[LLM] Saving config for role={} to path={:?}", role, path);
 
     // 确保父目录存在
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
+        log::info!("[LLM] Parent dir ensured: {:?}", parent);
     }
 
     // 读取现有配置（若不存在则创建空）
@@ -214,6 +216,7 @@ pub fn save_llm_config(role: &str, cfg: &LLMConfig) -> Result<(), ConfigError> {
         let content = std::fs::read_to_string(&path)?;
         toml::from_str(&content).map_err(|e| ConfigError::ParseError(e.to_string()))?
     } else {
+        log::info!("[LLM] No existing config file, creating new");
         ConfigFile::default()
     };
 
@@ -223,13 +226,14 @@ pub fn save_llm_config(role: &str, cfg: &LLMConfig) -> Result<(), ConfigError> {
     // 序列化为 TOML
     let new_content = toml::to_string_pretty(&cfg_file)
         .map_err(|e| ConfigError::SerializeError(e.to_string()))?;
+    log::info!("[LLM] Serialized config:\n{}", new_content);
 
     // 原子写：先写临时文件，再 rename
     let tmp_path = path.with_extension("toml.tmp");
     std::fs::write(&tmp_path, &new_content)?;
     std::fs::rename(&tmp_path, &path)?;
 
-    log::info!("Saved LLM config for role={}", role);
+    log::info!("[LLM] Saved LLM config for role={}", role);
     Ok(())
 }
 

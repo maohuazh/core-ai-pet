@@ -1,32 +1,39 @@
 <template>
-  <div v-if="visible" class="chat-placeholder">
-    <div class="chat-header">
-      <span class="chat-title">💬 Chat</span>
-      <button class="close-btn" @click="close">×</button>
-    </div>
-    <div ref="messagesContainer" class="chat-messages">
-      <div v-for="(message, index) in messages" :key="index" class="message">
-        <div class="message-role">{{ message.role }}</div>
-        <div class="message-content">{{ message.content }}</div>
+  <div v-if="visible" class="chat-overlay" @click.self="close">
+    <div class="chat-placeholder">
+      <div class="chat-header">
+        <span class="chat-title">💬 Chat</span>
+        <button class="close-btn" @click="close">×</button>
       </div>
-      <div v-if="isLoading" class="loading-indicator">
-        <span class="loading-dot"></span>
-        <span class="loading-dot"></span>
-        <span class="loading-dot"></span>
+      <div ref="messagesContainer" class="chat-messages">
+        <div v-if="messages.length === 0 && !isLoading" class="empty-state">
+          <div class="empty-icon">💬</div>
+          <div class="empty-text">开始对话吧！</div>
+          <div class="empty-hint">输入消息并按 Ctrl+Enter 发送</div>
+        </div>
+        <div v-for="(message, index) in messages" :key="index" class="message">
+          <div class="message-role">{{ message.role === 'user' ? '你' : 'AI' }}</div>
+          <div class="message-content" :class="{ 'assistant-msg': message.role === 'assistant' }">{{ message.content }}</div>
+        </div>
+        <div v-if="isLoading" class="loading-indicator">
+          <span class="loading-dot"></span>
+          <span class="loading-dot"></span>
+          <span class="loading-dot"></span>
+        </div>
       </div>
-    </div>
-    <div class="chat-input-area">
-      <textarea
-        v-model="inputMessage"
-        placeholder="输入消息... (Ctrl+Enter 发送)"
-        @keydown.ctrl.enter="sendMessage"
-        @keydown.meta.enter="sendMessage"
-        class="message-input"
-        rows="3"
-      ></textarea>
-      <button @click="sendMessage" :disabled="isLoading || !inputMessage.trim()" class="send-btn">
-        发送
-      </button>
+      <div class="chat-input-area">
+        <textarea
+          v-model="inputMessage"
+          placeholder="输入消息... (Ctrl+Enter 发送)"
+          @keydown.ctrl.enter="sendMessage"
+          @keydown.meta.enter="sendMessage"
+          class="message-input"
+          rows="3"
+        ></textarea>
+        <button @click="sendMessage" :disabled="isLoading || !inputMessage.trim()" class="send-btn">
+          发送
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -45,7 +52,7 @@ interface DeltaEvent {
   turn_id: string;
   delta: {
     type: string;
-    text?: string;
+    delta?: string;
     message?: string;
     [key: string]: any;
   };
@@ -74,19 +81,19 @@ onMounted(async () => {
       return;
     }
 
-    if (delta.type === 'Text' && delta.text) {
+    if (delta.type === 'text' && delta.delta) {
       // Append text to the last assistant message or create a new one
       const lastMessage = messages.value[messages.value.length - 1];
       if (lastMessage && lastMessage.role === 'assistant') {
-        lastMessage.content += delta.text;
+        lastMessage.content += delta.delta;
       } else {
         messages.value.push({
           role: 'assistant',
-          content: delta.text
+          content: delta.delta
         });
       }
       scrollToBottom();
-    } else if (delta.type === 'Error') {
+    } else if (delta.type === 'error') {
       messages.value.push({
         role: 'assistant',
         content: `[错误: ${delta.message || '未知错误'}]`
@@ -181,24 +188,37 @@ watch(messages, () => {
 // Expose methods for parent component
 defineExpose({
   show: () => { visible.value = true; },
-  hide: close
+  hide: close,
+  visible
 });
 </script>
 
 <style scoped>
+.chat-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
 .chat-placeholder {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 400px;
-  height: 500px;
-  background: rgba(255, 255, 255, 0.95);
+  width: 90%;
+  max-width: 500px;
+  height: 80%;
+  max-height: 600px;
+  min-height: 400px;
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(10px);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
-  z-index: 9999;
 }
 
 .chat-header {
@@ -268,6 +288,36 @@ defineExpose({
   color: #333;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.assistant-msg {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 8px;
+  flex: 1;
+}
+
+.empty-icon {
+  font-size: 48px;
+  opacity: 0.4;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #666;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: #999;
 }
 
 .loading-indicator {

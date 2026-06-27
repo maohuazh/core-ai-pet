@@ -176,10 +176,12 @@ async function save() {
     };
 
     // Directly invoke backend — properly awaits and catches errors
+    console.log('[LLM] Saving config for role:', props.role, 'flatConfig:', flatConfig);
     await invoke('llm_save_config', {
       role: props.role,
       cfg: flatConfig
     });
+    console.log('[LLM] Save invoke succeeded');
 
     // Build nested config for parent state
     const config: LLMConfig = {
@@ -203,6 +205,7 @@ async function save() {
       saveResult.value = null;
     }, 3000);
   } catch (e: any) {
+    console.error('[LLM] Save failed:', e);
     saveResult.value = 'error';
     saveError.value = e.toString();
   } finally {
