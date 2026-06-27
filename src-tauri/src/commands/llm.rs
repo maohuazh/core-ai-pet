@@ -642,3 +642,109 @@ fn emit_delta(app: &tauri::AppHandle, turn_id: &str, delta: UnifiedDelta) {
 fn emit_done(app: &tauri::AppHandle, turn_id: &str) {
     let _ = app.emit("llm_done", serde_json::json!({ "turn_id": turn_id }));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 测试：llm_get_secret 缺失时返回 secret_not_found 错误
+    #[test]
+    fn test_llm_get_secret_not_found() {
+        let result = llm_get_secret("non-existent-uuid".to_string());
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error, "secret_not_found");
+    }
+
+    /// 测试：parse_anthropic_event 解析 text_delta
+    #[test]
+    fn test_parse_anthropic_text_delta() {
+        let data = r#"{
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {
+                "type": "text_delta",
+                "text": "Hello"
+            }
+        }"#;
+        let delta = parse_anthropic_event(data);
+        match delta {
+            Some(UnifiedDelta::Text { delta }) => assert_eq!(delta, "Hello"),
+            other => panic!("Expected Text delta, got {:?}", other),
+        }
+    }
+
+    /// 测试：parse_anthropic_event 解析 message_stop
+    #[test]
+    fn test_parse_anthropic_message_stop() {
+        let data = r#"{"type": "message_stop"}"#;
+        let delta = parse_anthropic_event(data);
+        match delta {
+            Some(UnifiedDelta::Stop { reason }) => assert_eq!(reason, "end_turn"),
+            other => panic!("Expected Stop delta, got {:?}", other),
+        }
+    }
+
+    /// 测试：parse_anthropic_event 解析 error
+    #[test]
+    fn test_parse_anthropic_error() {
+        let data = r#"{
+            "type": "error",
+            "error": {
+                "type": "overloaded_error",
+                "message": "Service overloaded"
+            }
+        }"#;
+        let delta = parse_anthropic_event(data);
+        match delta {
+            Some(UnifiedDelta::Error {
+                recoverable,
+                code,
+                message,
+            }) => {
+                assert!(recoverable);
+                assert_eq!(code, "overloaded_error");
+                assert_eq!(message, "Service overloaded");
+            }
+            other => panic!("Expected Error delta, got {:?}", other),
+        }
+    }
+
+    /// 测试：LLMConfigPayload 与 LLMConfig 互转
+    #[test]
+    fn test_config_payload_conversion() {
+        let cfg = config::LLMConfig {
+            role: "test".to_string(),
+            provider: "anthropic".to_string(),
+            model: "claude-fable-5".to_string(),
+            base_url: None,
+            secret_ref: "uuid-1".to_string(),
+            params: config::LLMParams {
+                temperature: 0.7,
+                max_tokens: 4096,
+            },
+        };
+
+        let payload = LLMConfigPayload::from(cfg.clone());
+        assert_eq!(payload.role, "test");
+        assert_eq!(payload.provider, "anthropic");
+        assert_eq!(payload.model, "claude-fable-5");
+        assert_eq!(payload.secret_ref, "uuid-1");
+        assert!((payload.temperature - 0.7).abs() < f64::EPSILON);
+        assert_eq!(payload.max_tokens, 4096);
+
+        let back: config::LLMConfig = payload.into();
+        assert_eq!(back.role, cfg.role);
+        assert_eq!(back.provider, cfg.provider);
+        assert_eq!(back.model, cfg.model);
+        assert_eq!(back.secret_ref, cfg.secret_ref);
+    }
+
+    /// 测试：truncate 函数
+    #[test]
+    fn test_truncate() {
+        assert_eq!(truncate("hello", 10), "hello");
+        assert_eq!(truncate("hello world", 5), "hello...");
+        assert_eq!(truncate("", 10), "");
+    }
+}
