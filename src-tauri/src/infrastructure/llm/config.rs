@@ -204,6 +204,11 @@ pub fn parse_llm_config(content: &str, role: &str) -> Result<LLMConfig, ConfigEr
 pub fn save_llm_config(role: &str, cfg: &LLMConfig) -> Result<(), ConfigError> {
     let path = config_path()?;
 
+    // 确保父目录存在
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
     // 读取现有配置（若不存在则创建空）
     let mut cfg_file: ConfigFile = if path.exists() {
         let content = std::fs::read_to_string(&path)?;

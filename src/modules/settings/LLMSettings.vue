@@ -69,30 +69,10 @@ async function loadConfigs() {
 }
 
 async function handleSave(roleName: string, config: LLMConfig) {
-  try {
-    // Flatten config to match LLMConfigPayload structure expected by backend
-    const flatConfig = {
-      role: roleName,
-      provider: config.provider,
-      model: config.model,
-      base_url: config.base_url,
-      secret_ref: config.secret_ref,
-      temperature: config.params.temperature,
-      max_tokens: config.params.max_tokens
-    };
-
-    await invoke('llm_save_config', {
-      role: roleName,
-      cfg: flatConfig
-    });
-
-    // Update local state
-    const role = settings.value.roles.find(r => r.name === roleName);
-    if (role) {
-      role.config = config;
-    }
-  } catch (e: any) {
-    throw new Error(`保存配置失败: ${e}`);
+  // Update local state — the actual invoke is done in LLMRoleForm.vue
+  const role = settings.value.roles.find(r => r.name === roleName);
+  if (role) {
+    role.config = config;
   }
 }
 </script>

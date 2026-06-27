@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [config: LLMConfig];
+  saved: [config: LLMConfig];
 }>();
 
 // Form state
@@ -159,12 +160,28 @@ async function save() {
         plaintext: apiKey.value
       });
       secretRef = result.secret_ref;
-      // Update the existing secret ref so form knows key is configured
       existingSecretRef.value = secretRef;
-      // Clear the API key input since it's now saved
       apiKey.value = '';
     }
 
+    // Build flat config for backend (matching LLMConfigPayload)
+    const flatConfig = {
+      role: props.role,
+      provider: provider.value,
+      model: model.value,
+      base_url: baseUrl.value,
+      secret_ref: secretRef,
+      temperature: temperature.value,
+      max_tokens: maxTokens.value
+    };
+
+    // Directly invoke backend — properly awaits and catches errors
+    await invoke('llm_save_config', {
+      role: props.role,
+      cfg: flatConfig
+    });
+
+    // Build nested config for parent state
     const config: LLMConfig = {
       provider: provider.value,
       model: model.value,
@@ -178,6 +195,7 @@ async function save() {
     };
 
     emit('save', config);
+    emit('saved', config);
     saveResult.value = 'success';
 
     // Auto-hide success message after 3 seconds
