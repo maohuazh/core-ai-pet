@@ -22,6 +22,7 @@ windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging", "W
 uuid = { version = "1", features = ["v4"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
 toml = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 
 [features]
 # This feature is used for production builds or when a dev server is not specified

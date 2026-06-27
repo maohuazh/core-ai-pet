@@ -69,6 +69,13 @@ pub struct SecretPayload {
     pub plaintext: String,
 }
 
+/// 测试连接结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestConnectionPayload {
+    pub ok: bool,
+    pub reason: Option<String>,
+}
+
 /// 通用错误响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorPayload {
@@ -181,4 +188,123 @@ pub fn llm_delete_secret(secret_ref: String) -> Result<(), ErrorPayload> {
             message: other.to_string(),
         },
     })
+}
+
+// ============================================================================
+// Commands: Test Connection
+// ============================================================================
+
+/// 测试指定 role 的 LLM 连接是否可用
+///
+/// 内部流程：
+/// 1. 加载 role 配置
+/// 2. 取 API key
+/// 3. 向 provider 发起极小请求（max_tokens=1）验证连通性 / 鉴权
+#[command]
+pub async fn llm_test_connection(role: String) -> Result<TestConnectionPayload, ErrorPayload> {
+    // 1. 加载配置
+    let cfg = config::load_llm_config(&role).map_err(|e| match e {
+        config::ConfigError::FileNotFound => ErrorPayload {
+            error: "file_not_found".to_string(),
+            message: "config.toml not found".to_string(),
+        },
+        config::ConfigError::RoleNotFound(r) => ErrorPayload {
+            error: "role_not_found".to_string(),
+            message: format!("role '{}' not configured", r),
+        },
+        other => ErrorPayload {
+            error: "config_error".to_string(),
+            message: other.to_string(),
+        },
+    })?;
+
+    // 2. 取 API key
+    let api_key = secret_store::SecretStore::get_secret(&cfg.secret_ref).map_err(|e| match e {
+        secret_store::SecretError::NotFound => ErrorPayload {
+            error: "secret_not_found".to_string(),
+            message: "API key not configured".to_string(),
+        },
+        other => ErrorPayload {
+            error: "secret_error".to_string(),
+            message: other.to_string(),
+        },
+    })?;
+
+    // 3. 根据 provider 类型做 ping
+    match cfg.provider.as_str() {
+        "anthropic" => anthropic_ping(&cfg, &api_key).await,
+        other => Ok(TestConnectionPayload {
+            ok: false,
+            reason: Some(format!("unsupported provider: {}", other)),
+        }),
+    }
+}
+
+/// Anthropic 极小请求 ping
+async fn anthropic_ping(
+    cfg: &config::LLMConfig,
+    api_key: &str,
+) -> Result<TestConnectionPayload, ErrorPayload> {
+    let base_url = cfg
+        .base_url
+        .as_deref()
+        .unwrap_or("https://api.anthropic.com");
+    let url = format!("{}/v1/messages", base_url);
+
+    let body = serde_json::json!({
+        "model": cfg.model,
+        "max_tokens": 1,
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(&url)
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("content-type", "application/json")
+        .json(&body)
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) => {
+            let status = r.status().as_u16();
+            if status >= 200 && status < 300 {
+                Ok(TestConnectionPayload {
+                    ok: true,
+                    reason: None,
+                })
+            } else if status == 401 || status == 403 {
+                Ok(TestConnectionPayload {
+                    ok: false,
+                    reason: Some("unauthorized".to_string()),
+                })
+            } else if status == 429 {
+                Ok(TestConnectionPayload {
+                    ok: false,
+                    reason: Some("rate_limited".to_string()),
+                })
+            } else {
+                let body_text = r.text().await.unwrap_or_default();
+                Ok(TestConnectionPayload {
+                    ok: false,
+                    reason: Some(format!("http_{}: {}", status, truncate(&body_text, 200))),
+                })
+            }
+        }
+        Err(e) => Ok(TestConnectionPayload {
+            ok: false,
+            reason: Some(format!("network_error: {}", e)),
+        }),
+    }
+}
+
+/// 截断字符串到指定长度（用于错误信息）
+fn truncate(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len])
+    }
 }
