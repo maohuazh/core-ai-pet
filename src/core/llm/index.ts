@@ -21,3 +21,6 @@ export type {
   LLMDeltaEvent,
   LLMDoneEvent
 } from './types';
+export { AnthropicProvider, anthropicProvider } from './providers';
+export { initializeLLM, getProviderForRole } from './setup';
+

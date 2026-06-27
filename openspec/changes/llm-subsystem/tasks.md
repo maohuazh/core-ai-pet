@@ -37,11 +37,11 @@
 
 ## 5. 前端：Provider Adapter (Anthropic)
 
-- [ ] 5.1 在 `src/core/llm/providers/` 下新增 `anthropic.ts`，实现 `LLMProvider` 接口。
-- [ ] 5.2 `invoke()` 通过 `invoke('llm_invoke', ...)` 调 Rust，监听 `llm_delta` 事件，转换为本地 `AsyncIterable<UnifiedDelta>`（用 `AsyncGenerator` + yield）。
-- [ ] 5.3 `ping()` / `estimateCost()` 通过 `invoke('llm_test_connection')` / 本地定价表实现。
-- [ ] 5.4 启动时注册到 Registry：`registry.register('anthropic', anthropicProvider)`。
-- [ ] 5.5 单测：mock Tauri invoke + emit_to，验证 Anthropic delta 归一化。
+- [x] 5.1 在 `src/core/llm/providers/` 下新增 `anthropic.ts`，实现 `LLMProvider` 接口。
+- [x] 5.2 `invoke()` 通过 `invoke('llm_invoke', ...)` 调 Rust，监听 `llm_delta` 事件，转换为本地 `AsyncIterable<UnifiedDelta>`（用 `AsyncGenerator` + yield）。
+- [x] 5.3 `ping()` / `estimateCost()` 通过 `invoke('llm_test_connection')` / 本地定价表实现。
+- [x] 5.4 启动时注册到 Registry：`registry.register('anthropic', anthropicProvider)`。
+- [x] 5.5 单测：mock Tauri invoke + emit_to，验证 Anthropic delta 归一化。
 
 ## 6. 前端：Facade
 
