@@ -44,6 +44,24 @@ watch(() => props.config, (newConfig) => {
   }
 }, { immediate: true });
 
+// When provider changes, update default model and base_url
+watch(provider, (newProvider) => {
+  switch (newProvider) {
+    case 'anthropic':
+      model.value = 'claude-3-5-sonnet-20241022';
+      baseUrl.value = 'https://api.anthropic.com';
+      break;
+    case 'openai':
+      model.value = 'gpt-4o';
+      baseUrl.value = 'https://api.openai.com';
+      break;
+    case 'mock':
+      model.value = 'mock-model';
+      baseUrl.value = 'http://localhost:11434';
+      break;
+  }
+});
+
 // Validation
 function validate(): boolean {
   const errors: Record<string, string> = {};
@@ -180,8 +198,8 @@ async function save() {
     <div class="form-group">
       <label>Provider</label>
       <select v-model="provider">
-        <option value="anthropic">Anthropic</option>
-        <option value="openai" disabled>OpenAI (即将推出)</option>
+        <option value="anthropic">Anthropic (兼容协议)</option>
+        <option value="openai">OpenAI (兼容协议)</option>
         <option value="mock" disabled>Mock (调试用)</option>
       </select>
     </div>

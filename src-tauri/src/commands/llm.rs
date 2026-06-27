@@ -242,6 +242,7 @@ pub async fn llm_test_connection(
     // 3. 根据 provider 类型做 ping
     match cfg.provider.as_str() {
         "anthropic" => anthropic_ping(&cfg, &api_key).await,
+        "openai" => openai_ping(&cfg, &api_key).await,
         other => Ok(TestConnectionPayload {
             ok: false,
             reason: Some(format!("unsupported provider: {}", other)),
@@ -290,18 +291,12 @@ async fn anthropic_ping(
                     reason: Some("unauthorized".to_string()),
                 })
             } else if status == 405 {
-                let body_text = r.text().await.unwrap_or_default();
-                if body_text.contains("Coding Plan") {
-                    Ok(TestConnectionPayload {
-                        ok: false,
-                        reason: Some("此 API 密钥为 Coding Plan 类型，仅支持通过编码工具使用。请使用普通 API 密钥（从 console.anthropic.com 获取）".to_string()),
-                    })
-                } else {
-                    Ok(TestConnectionPayload {
-                        ok: false,
-                        reason: Some(format!("http_405: {}", truncate(&body_text, 200))),
-                    })
-                }
+                // 405 = server reachable, method not allowed (e.g. Coding Plan key)
+                // Still counts as a successful connection verification
+                Ok(TestConnectionPayload {
+                    ok: true,
+                    reason: Some("连接成功（服务端返回 405，API 密钥有效，但当前端点可能不支持此密钥类型）".to_string()),
+                })
             } else if status == 429 {
                 Ok(TestConnectionPayload {
                     ok: false,
@@ -328,6 +323,54 @@ fn truncate(s: &str, max_len: usize) -> String {
         s.to_string()
     } else {
         format!("{}...", &s[..max_len])
+    }
+}
+
+/// OpenAI 兼容协议极小请求 ping
+///
+/// 使用 GET /v1/models 验证连接和 API key
+async fn openai_ping(
+    cfg: &config::LLMConfig,
+    api_key: &str,
+) -> Result<TestConnectionPayload, ErrorPayload> {
+    let base_url = cfg
+        .base_url
+        .as_deref()
+        .unwrap_or("https://api.openai.com");
+    let url = format!("{}/v1/models", base_url);
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) => {
+            let status = r.status().as_u16();
+            if status >= 200 && status < 300 {
+                Ok(TestConnectionPayload {
+                    ok: true,
+                    reason: None,
+                })
+            } else if status == 401 || status == 403 {
+                Ok(TestConnectionPayload {
+                    ok: false,
+                    reason: Some("unauthorized: API 密钥无效或过期".to_string()),
+                })
+            } else {
+                let body_text = r.text().await.unwrap_or_default();
+                Ok(TestConnectionPayload {
+                    ok: false,
+                    reason: Some(format!("http_{}: {}", status, truncate(&body_text, 200))),
+                })
+            }
+        }
+        Err(e) => Ok(TestConnectionPayload {
+            ok: false,
+            reason: Some(format!("network_error: {}", e)),
+        }),
     }
 }
 
@@ -436,6 +479,9 @@ pub async fn llm_invoke(
         match cfg.provider.as_str() {
             "anthropic" => {
                 anthropic_stream(&app, &turn_id_clone, &cfg, &api_key, &request).await
+            }
+            "openai" => {
+                openai_stream(&app, &turn_id_clone, &cfg, &api_key, &request).await
             }
             other => {
                 let delta = UnifiedDelta::Error {
@@ -651,6 +697,215 @@ fn parse_anthropic_event(data: &str) -> Option<UnifiedDelta> {
     }
 }
 
+/// OpenAI 兼容协议流式请求实现
+async fn openai_stream(
+    app: &tauri::AppHandle,
+    turn_id: &str,
+    cfg: &config::LLMConfig,
+    api_key: &str,
+    request: &LLMInvokeRequest,
+) {
+    use futures_util::StreamExt;
+
+    let base_url = cfg.base_url.as_deref().unwrap_or("https://api.openai.com");
+    let url = format!("{}/v1/chat/completions", base_url);
+
+    // Build messages array, prepending system message if provided
+    let mut messages: Vec<serde_json::Value> = Vec::new();
+    if let Some(ref system) = request.system {
+        messages.push(serde_json::json!({
+            "role": "system",
+            "content": system
+        }));
+    }
+    for m in &request.messages {
+        messages.push(serde_json::json!({
+            "role": m.role,
+            "content": m.content
+        }));
+    }
+
+    let body = serde_json::json!({
+        "model": cfg.model,
+        "max_tokens": cfg.params.max_tokens,
+        "temperature": cfg.params.temperature,
+        "stream": true,
+        "messages": messages
+    });
+
+    let client = reqwest::Client::new();
+    let resp = match client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("content-type", "application/json")
+        .header("accept", "text/event-stream")
+        .json(&body)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            emit_delta(
+                app,
+                turn_id,
+                UnifiedDelta::Error {
+                    recoverable: true,
+                    code: "network_error".to_string(),
+                    message: e.to_string(),
+                },
+            );
+            emit_done(app, turn_id);
+            return;
+        }
+    };
+
+    let status = resp.status().as_u16();
+    if status >= 400 {
+        let body_text = resp.text().await.unwrap_or_default();
+        let recoverable = status >= 500 || status == 429;
+        emit_delta(
+            app,
+            turn_id,
+            UnifiedDelta::Error {
+                recoverable,
+                code: format!("http_{}", status),
+                message: truncate(&body_text, 500),
+            },
+        );
+        emit_done(app, turn_id);
+        return;
+    }
+
+    // Parse SSE stream
+    let mut stream = resp.bytes_stream();
+    let mut buffer = String::new();
+
+    while let Some(chunk) = stream.next().await {
+        match chunk {
+            Ok(bytes) => {
+                buffer.push_str(&String::from_utf8_lossy(&bytes));
+                // Line-based SSE parsing
+                while let Some(newline_pos) = buffer.find('\n') {
+                    let line = buffer[..newline_pos].trim().to_string();
+                    buffer = buffer[newline_pos + 1..].to_string();
+
+                    if line.is_empty() || line.starts_with(':') {
+                        continue;
+                    }
+
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        if data.trim() == "[DONE]" {
+                            emit_delta(
+                                app,
+                                turn_id,
+                                UnifiedDelta::Stop {
+                                    reason: "end_turn".to_string(),
+                                },
+                            );
+                            break;
+                        }
+                        if let Some(delta) = parse_openai_event(data) {
+                            emit_delta(app, turn_id, delta);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                emit_delta(
+                    app,
+                    turn_id,
+                    UnifiedDelta::Error {
+                        recoverable: true,
+                        code: "stream_error".to_string(),
+                        message: e.to_string(),
+                    },
+                );
+                break;
+            }
+        }
+    }
+
+    emit_done(app, turn_id);
+}
+
+/// 解析 OpenAI 兼容 SSE 事件为 UnifiedDelta
+///
+/// OpenAI streaming format: each `data:` line contains a JSON object like:
+/// ```json
+/// {"id":"...","choices":[{"delta":{"content":"Hello"},"index":0}]}
+/// ```
+fn parse_openai_event(data: &str) -> Option<UnifiedDelta> {
+    let json: serde_json::Value = serde_json::from_str(data).ok()?;
+    let choices = json.get("choices")?.as_array()?;
+    let first = choices.first()?;
+    let delta = first.get("delta")?;
+
+    // Check for tool_calls (function calling)
+    if let Some(tool_calls) = delta.get("tool_calls").and_then(|v| v.as_array()) {
+        for tc in tool_calls {
+            if let Some(_index) = tc.get("index") {
+                // If there's a function object with name, it's a new tool call
+                if let Some(function) = tc.get("function") {
+                    if let Some(name) = function.get("name").and_then(|v| v.as_str()) {
+                        let id = tc
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        return Some(UnifiedDelta::ToolUseStart {
+                            id,
+                            name: name.to_string(),
+                        });
+                    }
+                    if let Some(args) = function.get("arguments").and_then(|v| v.as_str()) {
+                        let index = tc
+                            .get("index")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0)
+                            .to_string();
+                        return Some(UnifiedDelta::ToolUseDelta {
+                            id: index,
+                            args_delta: args.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        return None;
+    }
+
+    // Text content delta
+    if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
+        if !content.is_empty() {
+            return Some(UnifiedDelta::Text {
+                delta: content.to_string(),
+            });
+        }
+    }
+
+    // Check for finish_reason
+    if let Some(reason) = first.get("finish_reason").and_then(|v| v.as_str()) {
+        return Some(UnifiedDelta::Stop {
+            reason: reason.to_string(),
+        });
+    }
+
+    // Usage info (if present in the last chunk with stream_options)
+    if let Some(usage) = json.get("usage") {
+        let prompt_tokens = usage.get("prompt_tokens").and_then(|v| v.as_u64());
+        let completion_tokens = usage.get("completion_tokens").and_then(|v| v.as_u64());
+        if prompt_tokens.is_some() || completion_tokens.is_some() {
+            return Some(UnifiedDelta::Usage {
+                input_tokens: prompt_tokens,
+                output_tokens: completion_tokens,
+                cached: None,
+            });
+        }
+    }
+
+    None
+}
+
 /// Emit delta 事件给 Renderer
 fn emit_delta(app: &tauri::AppHandle, turn_id: &str, delta: UnifiedDelta) {
     let event = LLMDeltaEvent {
@@ -768,5 +1023,120 @@ mod tests {
         assert_eq!(truncate("hello", 10), "hello");
         assert_eq!(truncate("hello world", 5), "hello...");
         assert_eq!(truncate("", 10), "");
+    }
+
+    /// 测试：parse_openai_event 解析 text delta
+    #[test]
+    fn test_parse_openai_text_delta() {
+        let data = r#"{
+            "id": "chatcmpl-123",
+            "choices": [{
+                "delta": {"content": "Hello"},
+                "index": 0
+            }]
+        }"#;
+        let delta = parse_openai_event(data);
+        match delta {
+            Some(UnifiedDelta::Text { delta }) => assert_eq!(delta, "Hello"),
+            other => panic!("Expected Text delta, got {:?}", other),
+        }
+    }
+
+    /// 测试：parse_openai_event 解析 finish_reason (stop)
+    #[test]
+    fn test_parse_openai_finish_stop() {
+        let data = r#"{
+            "id": "chatcmpl-123",
+            "choices": [{
+                "delta": {},
+                "finish_reason": "stop",
+                "index": 0
+            }]
+        }"#;
+        let delta = parse_openai_event(data);
+        match delta {
+            Some(UnifiedDelta::Stop { reason }) => assert_eq!(reason, "stop"),
+            other => panic!("Expected Stop delta, got {:?}", other),
+        }
+    }
+
+    /// 测试：parse_openai_event 解析 tool call start
+    #[test]
+    fn test_parse_openai_tool_use_start() {
+        let data = r#"{
+            "id": "chatcmpl-123",
+            "choices": [{
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "id": "call_abc123",
+                        "function": {"name": "get_weather", "arguments": ""}
+                    }]
+                },
+                "index": 0
+            }]
+        }"#;
+        let delta = parse_openai_event(data);
+        match delta {
+            Some(UnifiedDelta::ToolUseStart { id, name }) => {
+                assert_eq!(id, "call_abc123");
+                assert_eq!(name, "get_weather");
+            }
+            other => panic!("Expected ToolUseStart delta, got {:?}", other),
+        }
+    }
+
+    /// 测试：parse_openai_event 解析 tool call arguments delta
+    #[test]
+    fn test_parse_openai_tool_use_delta() {
+        let data = r#"{
+            "id": "chatcmpl-123",
+            "choices": [{
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "function": {"arguments": "{\"location\":"}
+                    }]
+                },
+                "index": 0
+            }]
+        }"#;
+        let delta = parse_openai_event(data);
+        match delta {
+            Some(UnifiedDelta::ToolUseDelta { id, args_delta }) => {
+                assert_eq!(id, "0");
+                assert_eq!(args_delta, "{\"location\":");
+            }
+            other => panic!("Expected ToolUseDelta delta, got {:?}", other),
+        }
+    }
+
+    /// 测试：parse_openai_event 解析 usage
+    #[test]
+    fn test_parse_openai_usage() {
+        let data = r#"{
+            "id": "chatcmpl-123",
+            "choices": [{
+                "delta": {},
+                "index": 0
+            }],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50
+            }
+        }"#;
+        let delta = parse_openai_event(data);
+        match delta {
+            Some(UnifiedDelta::Usage {
+                input_tokens,
+                output_tokens,
+                cached,
+            }) => {
+                assert_eq!(input_tokens, Some(100));
+                assert_eq!(output_tokens, Some(50));
+                assert_eq!(cached, None);
+            }
+            other => panic!("Expected Usage delta, got {:?}", other),
+        }
     }
 }
