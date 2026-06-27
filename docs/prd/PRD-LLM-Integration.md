@@ -5,7 +5,7 @@
 > 状态: 草案
 > 关联: [PRD-Settings-Panel](./PRD-Settings-Panel.md)
 >
-> **v1.5 变更 (聊天窗口 + 会话 + 工作区 + 上下文管理)：** 新增 §4.21 Context 管理 (sliding / summarize / smart)、§4.22 Session & Workspace 模型 (含 scratch 沙箱、workspace 单一字段、MCP 单层全局)、§4.23 多窗口与全局热键；§5.13 Chat 窗口三栏布局、§5.14 热键冲突 toast、§5.15 输入框下方 workspace chip；§4.8 MCP 显式锁定"单层全局"作用域；§6.5 新增 `scratch/<session_id>/` 目录；TOML schema 增 `[chat_window]` / `[context_management]` 块；独立热键文件 `~/.core-ai-pet/hotkeys.toml`；Goals +G25~G28；M12。明确**不集成 Claude Code CLI / Agent SDK**，全部自研 Harness。
+> **v1.5 变更 (聊天窗口 + 会话 + 工作区 + 上下文管理)：** 新增 §4.21 Context 管理 (sliding / summarize / smart)、§4.22 Session & Workspace 模型 (含 scratch 沙箱、workspace 单一字段、MCP 单层全局)、§4.23 多窗口与全局热键；§5.13 Chat 窗口三栏布局 (左栏固定 240px 不折叠、"+ 新会话" 入口移到窗口顶栏右侧)、§5.14 热键冲突 toast、§5.15 输入框下方 workspace chip；§4.8 MCP 显式锁定"单层全局"作用域；§6.5 新增 `scratch/<session_id>/` 目录；TOML schema 增 `[chat_window]` / `[context_management]` 块；独立热键文件 `~/.core-ai-pet/hotkeys.toml`（含二期预留键位）；新增 §13 二期 (Phase 2) 规划：`Alt+N` / `Alt+↑↓` session 切换、Thinking/Tool 块显示开关；Goals +G25~G28；M12。明确**不集成 Claude Code CLI / Agent SDK**，全部自研 Harness。
 >
 > **v1.4 变更 (安全 / 隐私 / 成本 / 可观测性)：** 新增 §1.3 威胁模型、§4.17 Egress 策略、§4.18 PII 脱敏、§4.19 成本 / 配额闸门、§4.20 隐私模式、§6.6 审计日志、§6.7 SLO；TOML schema 增 `egress` / `pii` / `quota` / `audit` / `privacy_mode` 块；§5.11 隐私 toggle UI、§5.12 成本仪表盘；Goals +G21~G24。
 >
@@ -1251,12 +1251,20 @@ interface Session {
 
 ```toml
 # ~/.core-ai-pet/hotkeys.toml
+
+# === 全局热键 (v1.5 注册) ===
 open_chat = "Ctrl+Alt+N"
 
-# 预留位（v1 不出 UI，用户可手编尝试）
-focus_pet = ""             # 空字符串 = 未绑定
-toggle_mute = ""
-stop_current_turn = ""     # 全局停止当前流式 turn，v2 候选
+# === 全局热键预留位 (v1.5 不注册，留空 = 未绑定，用户可手编尝试) ===
+focus_pet         = ""
+toggle_mute       = ""
+stop_current_turn = ""     # 二期候选 (§13.3)
+
+# === Chat 窗口本地快捷键 (v1.5 已用：Ctrl+N / Ctrl+W / Ctrl+Shift+N / Ctrl+Enter / Esc) ===
+# 二期预留位 (留空 → 不生效；二期默认填入推荐值) — 详见 §13.1：
+new_session_alt    = ""   # 推荐 "Alt+N"
+nav_session_prev   = ""   # 推荐 "Alt+Up"
+nav_session_next   = ""   # 推荐 "Alt+Down"
 ```
 
 - **不做：** hotkey 配置 UI、per-session hotkey、conflict 自动重映射、热键串里的双修饰键 ergonomics 校验。
@@ -1555,7 +1563,7 @@ chat_assistant 槽位卡片在 Persona 下方追加 3 个折叠区，**默认全
 **整体：** 左侧会话列表 | 中间对话主区 | 右侧文件预览。参考 Codex 风格。
 
 ```
-┌─ Chat 窗口 ────────────────────────────────────────────────────────────────┐
+┌─ Chat 窗口 ────────────────────────────────────────────────────────────── [+ 新会话] [⊞ 新窗口] [⚙] [×] ┐
 │ ┌──────────────┬────────────────────────────────┬──────────────────────────┐ │
 │ │ Sessions     │ Conversation                    │ Preview                  │ │
 │ ├──────────────┤                                 │ ┌[report.md ×][chart × ▾]│
@@ -1587,9 +1595,10 @@ chat_assistant 槽位卡片在 Persona 下方追加 3 个折叠区，**默认全
   - 第一行：session title（默认取第一条 user message 前 30 字）
   - 第二行：workspace 末段名 + hover 显示完整路径；无 workspace → `⊘ 无工作目录`
 - 右键菜单：**重命名 / 删除 / 在新会话中切换工作目录 (fork)**
-- 头部 "+ 新会话" 按钮
 - 当前 active session 高亮（与 §5.2 active 槽位风格一致）
-- 列表宽度固定 240px（v1）
+- 列表宽度**固定 240px**，v1 不支持折叠 / 隐藏左栏（如需更宽 chat 区，整体拖宽窗口）
+
+**"+ 新会话" 入口（v1.5）：** 不再放在 sidebar Recent 段头部，而是挂在 **chat 窗口标题栏右侧 (top bar)**，与"新窗口 (Ctrl+Shift+N)" / 齿轮设置 / 关闭并排 — 参考 Codex 顶栏布局。键盘备选 `Ctrl+N` 同时生效（见下方快捷键表）。Phase 2 (§13.1) 增 `Alt+N` 作为更省力的双手位补充。
 
 **"最后交互" 定义：** 用户发消息 **或** assistant 流式增量到达，均刷新。流式中 session 视为活跃，不会因长时间流式而落入 History 段。
 
@@ -1634,14 +1643,16 @@ chat_assistant 槽位卡片在 Persona 下方追加 3 个折叠区，**默认全
 
 **键盘快捷键 (chat 窗内)：**
 
-| 快捷键 | 行为 |
-|--------|------|
-| `Ctrl+Enter` | 发送消息 |
-| `Esc` | 流式中停止当前 turn；否则 focus 跳回输入框 |
-| `Ctrl+N` | 新建 session（当前窗口内） |
-| `Ctrl+W` | 关闭当前 session（不关窗口） |
-| `Ctrl+Shift+N` | 新窗口（独立 chat 窗口） |
-| `Ctrl+L` | focus session 搜索（v1.6，本期不做） |
+| 快捷键 | 行为 | 范围 |
+|--------|------|------|
+| `Ctrl+Enter` | 发送消息 | v1.5 |
+| `Esc` | 流式中停止当前 turn；否则 focus 跳回输入框 | v1.5 |
+| `Ctrl+N` | 新建 session（当前窗口内） | v1.5 |
+| `Ctrl+W` | 关闭当前 session（不关窗口） | v1.5 |
+| `Ctrl+Shift+N` | 新窗口（独立 chat 窗口） | v1.5 |
+| `Alt+N` | 新建 session 的备用键位（更省力的双手位） | **二期** (§13.1) |
+| `Alt+↑` / `Alt+↓` | 在左栏 session 列表中向上 / 下切换 | **二期** (§13.1) |
+| `Ctrl+L` | focus session 搜索 | **二期** (§13.3) |
 
 ### 5.14 全局热键冲突 toast
 
@@ -2585,3 +2596,75 @@ LLMSlotCard.vue
 
 26. **不集成 Claude Code CLI / Agent SDK 的最终决定？**
     当前结论：**确认不集成**。理由：(1) 与 G3 多 provider 冲突 (CLI 仅 Anthropic)；(2) Turn 终止语义、桌宠 trigger_key、egress 矩阵、cost meter、隐私模式均需自有控制；(3) Node 运行时 + Claude Code 包对桌宠发行体积不友好；(4) 自研 Harness 在 §4 已有完整设计，工时上"省的是 UI 思路，不是 agentic loop"。Harness 仍可借鉴其 streaming 事件命名与 tool_result truncation 策略，但代码自行实现。
+
+---
+
+## 13. 二期 (Phase 2) 规划
+
+明确归到下一期的功能，**不在 v1.5 范围**。本节只锁能力边界与接口预留位，详细设计稿在二期独立 PRD 中产出。
+
+### 13.1 Chat 窗口本地快捷键扩展
+
+v1.5 已落 `Ctrl+N` / `Ctrl+W` / `Ctrl+Shift+N` / `Ctrl+Enter` / `Esc`（见 §5.13）。二期补充三个：
+
+| 快捷键 | 行为 | 备注 |
+|--------|------|------|
+| `Alt+N` | 新建 session (当前窗口) | 与 `Ctrl+N` 等价，提供单手 / 笔记本省力位 |
+| `Alt+↑` | 切到上一个 session（按 `last_interaction_at` 倒序前一位） | 自动展开折叠态的 History 段 |
+| `Alt+↓` | 切到下一个 session | 同上 |
+
+**预留位置**：`~/.core-ai-pet/hotkeys.toml` 留三条空键，v1.5 即写入但保留空值（不注册）：
+
+```toml
+# 已 v1.5 使用：
+open_chat = "Ctrl+Alt+N"
+
+# 二期预留（v1.5 写入但留空 → 不注册；二期默认填入下列推荐值）：
+new_session_alt    = ""          # 推荐 "Alt+N"
+nav_session_prev   = ""          # 推荐 "Alt+Up"
+nav_session_next   = ""          # 推荐 "Alt+Down"
+```
+
+**实现位置（二期新建）**：`src/modules/chat/hotkey/window-shortcuts.ts` —— 接 chat 窗口本地 `keydown`，**不走全局 hotkey**（这三个只应在 chat 窗口聚焦时生效，避免与其他应用冲突）。
+
+### 13.2 Thinking / Tool 块显示开关
+
+v1.5 中两类块**默认折叠且无法配置**（见 §5.13）。二期加：
+
+- **全局默认**（设置面板 → AI 模型 → 槽位卡片 §5.5 邻近）：
+  - `chat_window.ui.thinking_default_expanded`（默认 `false`）
+  - `chat_window.ui.tool_call_default_expanded`（默认 `false`）
+- **per-session 覆写**：chat 窗口顶栏齿轮菜单 → "本会话显示设置"，三态：跟随全局 / 强制展开 / 强制折叠。优先级 per-session > 全局。
+
+```toml
+# 二期新增到 TOML schema：
+[chat_window.ui]
+thinking_default_expanded  = false
+tool_call_default_expanded = false
+```
+
+**实现位置（二期新建）**：`src/modules/chat/main/{ThinkingBlock,ToolCallBlock}.vue` 中已有的 `defaultCollapsed` prop → 二期改为从 `useChatWindowUiSettings()` composable 读取。v1.5 即在组件签名上预留 prop，避免二期改 API 破坏调用方。
+
+### 13.3 其他二期候选
+
+| 项 | 已记录于 | 状态 |
+|----|---------|------|
+| Memory 详细设计稿 | §4.12 已分三层 + §5.10 UI；episodic 抽取规则与 semantic 高级 UI 详稿待出 | 入二期 (独立 PRD) |
+| Token / 用量个人 dashboard 增强 | §4.19 + §5.12 已覆盖底层；按 session / 按 turn 钻取留 v1.5+ (§12 Q15) | 入二期 |
+| Session 列表搜索 / 过滤 | §4.22 v1 不做；`Ctrl+L` 已预留键位 | 入二期 |
+| 工作目录键盘可达 (chip 进 Tab 序列 + `Ctrl+Shift+P` 命令栏) | §5.15 v1 不做 | 入二期 |
+| 全局热键 "stop_current_turn" | §4.23 hotkeys.toml 已留位 (§12 Q6) | 入二期 |
+| `edit_file` 的 patch 模式 (unified diff) | §12 Q4 | 入二期 |
+| MCP 工具粒度 per-role 勾选 | §4.8 v1 不做 (NG8) | 入二期 |
+
+### 13.4 二期暂不做
+
+明确划出二期也不做的功能，避免 scope 蔓延：
+
+- 内置向量检索 (`sqlite-vec` / embedding 模型集成)
+- PII 自定义 Lua / WASM 脚本沙箱
+- Hotkey 冲突自动重映射
+- 多虚拟桌面 / 多显示器 `active_window` 自适应
+- 企业部署模式 (强制锁定 privacy_mode / OS ACL 集成)
+
+以上若有诉求，独立 PRD 评估。
