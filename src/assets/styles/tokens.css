@@ -1,0 +1,55 @@
+/**
+ * Design tokens — 项目级 UI 规则
+ * 任何颜色 / 圆角 / 间距 都必须引用本文件，不允许裸写 hex / 像素值（除一次性微调）。
+ * 详见 docs/UI-style-rules.md
+ */
+
+:root {
+  /* ---- Colors: surfaces ---- */
+  --bg-base: #1e1e2e;
+  --bg-surface: #181825;
+  --bg-elevated: #313244;
+  --bg-hover: #45475a;
+  --bg-hover-2: #585b70;
+
+  /* ---- Colors: borders ---- */
+  --border: #313244;
+  --border-strong: #45475a;
+
+  /* ---- Colors: text ---- */
+  --text: #cdd6f4;
+  --text-muted: #a6adc8;
+  --text-dim: #6c7086;
+  --text-faint: #7f849c;
+
+  /* ---- Colors: accent & status ---- */
+  --accent: #89b4fa;
+  --accent-hover: #74c7ec;
+  --success: #a6e3a1;
+  --danger: #f38ba8;
+  --warning: #f9e2af;
+
+  /* ---- Radii ---- */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 10px;
+  --r-2xl: 14px;
+
+  /* ---- Shadows ---- */
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.5);
+
+  /* ---- Z-index ladder ---- */
+  --z-popover: 1000;
+  --z-tooltip: 1100;
+  --z-modal: 2000;
+
+  /* ---- Typography ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Cascadia Code", "Fira Code", monospace;
+
+  /* ---- Transition ---- */
+  --t-fast: 0.15s;
+  --t-med: 0.2s;
+}

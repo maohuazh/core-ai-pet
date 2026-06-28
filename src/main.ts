@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 import { triggerHandler } from "./core/events/triggerHandler";
+import "./assets/styles/tokens.css";
 
 const app = createApp(App);
 

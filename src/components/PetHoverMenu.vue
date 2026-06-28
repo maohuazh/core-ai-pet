@@ -1,7 +1,7 @@
 <template>
   <div class="hover-menu">
     <div
-      v-for="(item, index) in menuItems"
+      v-for="(item, index) in petMenuItems"
       :key="item.action"
       class="menu-item"
       :style="getItemStyle(index)"
@@ -21,31 +21,17 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-
-interface MenuItem {
-  action: string;
-  icon: string;
-  label: string;
-}
+import { petMenuItems } from "../core/pet/petMenu";
 
 const props = defineProps<{
   onAction: (action: string) => void | Promise<void>;
 }>();
 
-const menuItems: MenuItem[] = [
-  { action: "task", icon: "📋", label: "任务" },
-  { action: "message", icon: "💬", label: "消息" },
-  { action: "jira", icon: "🔗", label: "Jira" },
-  { action: "email", icon: "📧", label: "邮件" },
-  { action: "agent", icon: "🤖", label: "Agent" },
-  { action: "settings", icon: "⚙️", label: "设置" },
-];
-
 const hoveredButton = ref<string | null>(null);
 
 const getItemStyle = (index: number) => {
   const radius = 80;
-  const angle = (index / menuItems.length) * 2 * Math.PI - Math.PI / 2;
+  const angle = (index / petMenuItems.length) * 2 * Math.PI - Math.PI / 2;
   const x = Math.cos(angle) * radius;
   const y = Math.sin(angle) * radius;
 

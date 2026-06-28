@@ -106,44 +106,51 @@ async function handleSave(roleName: string, config: LLMConfig) {
 
 <style scoped>
 .llm-settings {
-  padding: 20px;
+  padding: 0;
+  color: var(--text);
 }
 
 h2 {
-  margin-bottom: 20px;
-  font-size: 20px;
+  margin: 0 0 20px 0;
+  font-size: 16px;
   font-weight: 600;
+  color: var(--text);
 }
 
 .loading {
-  color: #666;
+  color: var(--text-dim);
   padding: 20px;
   text-align: center;
+  font-size: 13px;
 }
 
 .error {
-  color: #d32f2f;
-  padding: 12px;
-  background-color: #ffebee;
-  border-radius: 4px;
+  color: var(--danger);
+  padding: 10px 12px;
+  background: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: var(--r-lg);
   margin-bottom: 16px;
+  font-size: 13px;
 }
 
 .roles {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .role-section {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
   padding: 16px;
 }
 
 .role-section h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
+  margin: 0 0 14px 0;
+  font-size: 14px;
   font-weight: 600;
+  color: var(--text);
 }
 </style>

@@ -34,46 +34,40 @@ defineEmits<{
 }
 
 .empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  opacity: 0.6;
+  font-size: 44px;
+  margin-bottom: 14px;
+  opacity: 0.55;
 }
 
 .empty-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #1f2937;
-  margin: 0 0 8px 0;
+  color: var(--text-muted);
+  margin: 0 0 6px 0;
 }
 
 .empty-description {
-  font-size: 14px;
-  color: #9ca3af;
-  margin: 0 0 24px 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0 0 22px 0;
   max-width: 320px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .empty-action {
-  padding: 10px 20px;
+  padding: 8px 18px;
   border: none;
-  border-radius: 8px;
-  background: #6366f1;
-  color: white;
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: var(--bg-base);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast);
 }
 
 .empty-action:hover {
-  background: #818cf8;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(99, 102, 241, 0.2);
-}
-
-.empty-action:active {
-  background: #4f46e5;
-  transform: translateY(0);
+  background: var(--accent-hover);
 }
 </style>

@@ -114,11 +114,22 @@
     <!-- Bottom bar: Workspace selector + git branch -->
     <footer class="bottom-bar">
       <label class="workspace-label">工作区:</label>
-      <select v-model="currentWorkspace" class="workspace-select" @change="onWorkspaceChange">
-        <option value="">默认</option>
-        <option v-for="ws in workspaces" :key="ws" :value="ws">{{ formatWorkspaceLabel(ws) }}</option>
-        <option value="__add_dir__">📁 添加目录...</option>
-      </select>
+      <button
+        ref="workspaceBtn"
+        class="workspace-trigger"
+        :class="{ open: workspaceMenuOpen }"
+        @click="workspaceMenuOpen = !workspaceMenuOpen"
+      >
+        <span class="workspace-text">{{ workspaceDisplayLabel }}</span>
+        <span class="workspace-arrow">▾</span>
+      </button>
+      <AppMenu
+        :open="workspaceMenuOpen"
+        :anchor="workspaceBtn"
+        :items="workspaceMenuItems"
+        placement="top-start"
+        @update:open="workspaceMenuOpen = $event"
+      />
       <span v-if="gitBranch" class="git-branch" :title="currentWorkspace || '当前项目'">
         <svg class="git-icon" viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
           <path d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/>
@@ -134,6 +145,7 @@ import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import AppMenu, { type MenuItem } from '@/components/ui/AppMenu.vue';
 
 // ---- Types ----
 interface Session {
@@ -195,6 +207,46 @@ const streamingToolCalls = ref<ToolCall[]>([]);
 const currentWorkspace = ref('');
 const workspaces = ref<string[]>([]);
 const gitBranch = ref<string | null>(null);
+const workspaceBtn = ref<HTMLButtonElement | null>(null);
+const workspaceMenuOpen = ref(false);
+
+const workspaceDisplayLabel = computed(() => {
+  if (!currentWorkspace.value) return '默认';
+  return formatWorkspaceLabel(currentWorkspace.value);
+});
+
+const workspaceMenuItems = computed<MenuItem[]>(() => {
+  const items: MenuItem[] = [
+    {
+      id: '__default__',
+      label: '默认',
+      icon: currentWorkspace.value === '' ? '✓' : ' ',
+      onSelect: () => selectWorkspace(''),
+    },
+  ];
+  for (const ws of workspaces.value) {
+    items.push({
+      id: ws,
+      label: formatWorkspaceLabel(ws),
+      icon: currentWorkspace.value === ws ? '✓' : ' ',
+      hint: ws,
+      onSelect: () => selectWorkspace(ws),
+    });
+  }
+  items.push({ kind: 'divider' });
+  items.push({
+    id: '__add__',
+    label: '添加目录...',
+    icon: '📁',
+    onSelect: () => addWorkspace(),
+  });
+  return items;
+});
+
+async function selectWorkspace(ws: string) {
+  currentWorkspace.value = ws;
+  await onWorkspaceChange();
+}
 
 let unlistenStream: UnlistenFn | null = null;
 let unlistenDone: UnlistenFn | null = null;
@@ -424,12 +476,6 @@ async function loadWorkspaces() {
 }
 
 async function onWorkspaceChange() {
-  // Handle "添加目录..." option
-  if (currentWorkspace.value === '__add_dir__') {
-    currentWorkspace.value = '';
-    await addWorkspace();
-    return;
-  }
   // Persist workspace preference
   invoke('storage_set', { key: 'current_workspace', value: currentWorkspace.value }).catch(() => {});
   // Update session in DB
@@ -876,15 +922,29 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
   font-size: 12px;
   color: #6c7086;
 }
-.workspace-select {
-  padding: 3px 8px;
+.workspace-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
   border: 1px solid #45475a;
   border-radius: 4px;
   font-size: 12px;
+  font-family: inherit;
   background: #1e1e2e;
   color: #cdd6f4;
+  cursor: pointer;
+  transition: border-color 0.15s;
 }
-.workspace-select:focus { outline: none; border-color: #89b4fa; }
+.workspace-trigger:hover,
+.workspace-trigger.open {
+  border-color: #89b4fa;
+  outline: none;
+}
+.workspace-arrow {
+  font-size: 10px;
+  color: #6c7086;
+}
 
 /* ---- Scrollbar ---- */
 .messages-scroll::-webkit-scrollbar,

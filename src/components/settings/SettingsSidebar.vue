@@ -37,8 +37,8 @@ const navItems = [
   width: 160px;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.4);
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
 }
 
 .sidebar-nav {
@@ -46,40 +46,41 @@ const navItems = [
   display: flex;
   flex-direction: column;
   padding: 12px 8px;
-  gap: 4px;
+  gap: 2px;
 }
 
 .nav-item {
   position: relative;
   display: flex;
   align-items: center;
-  height: 44px;
+  height: 40px;
   padding: 0 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: transparent;
-  color: #6b7280;
+  color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  font-family: inherit;
   text-align: left;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast), color var(--t-fast);
 }
 
 .nav-item:hover {
-  background: rgba(99, 102, 241, 0.08);
-  color: #1f2937;
+  background: var(--bg-elevated);
+  color: var(--text);
 }
 
 .nav-item.active {
-  background: rgba(99, 102, 241, 0.12);
-  color: #6366f1;
+  background: var(--bg-hover);
+  color: var(--text);
   font-weight: 500;
 }
 
 .nav-icon {
-  font-size: 18px;
+  font-size: 16px;
   margin-right: 10px;
-  width: 24px;
+  width: 20px;
   text-align: center;
 }
 
@@ -93,18 +94,18 @@ const navItems = [
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 24px;
-  background: #6366f1;
+  height: 20px;
+  background: var(--accent);
   border-radius: 0 3px 3px 0;
 }
 
 .sidebar-footer {
   padding: 12px 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid var(--border);
 }
 
 .version-text {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 11px;
+  color: var(--text-dim);
 }
 </style>

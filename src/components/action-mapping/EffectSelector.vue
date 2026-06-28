@@ -2,12 +2,13 @@
   <div class="effect-selector">
     <div class="selector-row">
       <label>特效:</label>
-      <select v-model="selectedEffect" :disabled="disabled" @change="onEffectChange">
-        <option value="">(无)</option>
-        <option v-for="effect in effects" :key="effect.id" :value="effect.id">
-          {{ effect.icon }} {{ effect.name }} ({{ effect.defaultDuration / 1000 }}s)
-        </option>
-      </select>
+      <AppSelect
+        v-model="selectedEffect"
+        :options="effectOptions"
+        :disabled="disabled"
+        placeholder="(无)"
+        @change="onEffectChange"
+      />
     </div>
     <div v-if="selectedEffect" class="selector-row">
       <label>持续:</label>
@@ -18,6 +19,7 @@
         min="100"
         step="100"
         @change="onChange"
+        class="num-input"
       />
       <span>ms</span>
     </div>
@@ -42,7 +44,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
+import AppSelect, { type SelectOption } from "../ui/AppSelect.vue";
 import type { AvailableEffect } from "../../core/action/types";
 
 const props = defineProps<{
@@ -62,8 +65,14 @@ const selectedEffect = ref(props.modelValue.name);
 const duration = ref(props.modelValue.duration);
 const position = ref(props.modelValue.position);
 
+const effectOptions = computed<SelectOption[]>(() =>
+  props.effects.map((e) => ({
+    value: e.id,
+    label: `${e.icon} ${e.name} (${e.defaultDuration / 1000}s)`,
+  }))
+);
+
 function onEffectChange() {
-  // Set default duration when selecting an effect
   if (selectedEffect.value) {
     const effect = props.effects.find((e) => e.id === selectedEffect.value);
     if (effect) {
@@ -81,7 +90,6 @@ function onChange() {
   });
 }
 
-// Sync with parent value
 watch(
   () => props.modelValue,
   (newVal) => {
@@ -106,43 +114,41 @@ watch(
 }
 
 .selector-row label {
-  min-width: 50px;
-  font-size: 13px;
-  color: #666;
+  min-width: 44px;
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
 }
 
-.selector-row select,
-.selector-row input[type="number"] {
+.num-input {
   flex: 1;
-  padding: 6px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 13px;
-  background: white;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--bg-base);
+  color: var(--text);
 }
 
-.selector-row select:disabled,
-.selector-row input:disabled {
-  background: #f5f5f5;
+.num-input:disabled {
+  background: var(--bg-surface);
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
-.selector-row select:hover:not(:disabled),
-.selector-row input:hover:not(:disabled) {
-  border-color: #4a90e2;
+.num-input:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 
-.selector-row select:focus,
-.selector-row input:focus {
+.num-input:focus {
   outline: none;
-  border-color: #4a90e2;
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+  border-color: var(--accent);
 }
 
 .selector-row span {
-  font-size: 13px;
-  color: #666;
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .radio-group {
@@ -156,10 +162,12 @@ watch(
   gap: 4px;
   min-width: auto;
   cursor: pointer;
+  color: var(--text-muted);
 }
 
 .radio-group input[type="radio"] {
   cursor: pointer;
+  accent-color: var(--accent);
 }
 
 .radio-group input[type="radio"]:disabled {

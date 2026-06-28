@@ -9,13 +9,26 @@
         <p class="card-subtitle">{{ subtitle }}</p>
       </div>
       <div class="card-actions">
-        <button class="menu-btn" @click.stop="$emit('menu')">
+        <button
+          ref="menuBtnEl"
+          class="menu-btn"
+          :class="{ active: menuOpen }"
+          @click.stop="onMenuClick"
+        >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <circle cx="8" cy="3" r="1.5" fill="currentColor" />
             <circle cx="8" cy="8" r="1.5" fill="currentColor" />
             <circle cx="8" cy="13" r="1.5" fill="currentColor" />
           </svg>
         </button>
+        <AppMenu
+          v-if="menuItems && menuItems.length"
+          :open="menuOpen"
+          :anchor="menuBtnEl"
+          :items="menuItems"
+          placement="bottom-end"
+          @update:open="menuOpen = $event"
+        />
       </div>
     </div>
     <div class="card-body">
@@ -31,8 +44,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import ToggleSwitch from './ToggleSwitch.vue';
+import AppMenu, { type MenuItem } from '../../ui/AppMenu.vue';
 
 const props = defineProps<{
   name: string;
@@ -40,13 +54,26 @@ const props = defineProps<{
   status: 'connected' | 'expired' | 'error' | 'disconnected';
   enabled: boolean;
   actionLabel: string;
+  /** 提供则启用内置依附菜单；不提供则回落到 @menu 事件 */
+  menuItems?: MenuItem[];
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   toggle: [enabled: boolean];
   action: [];
   menu: [];
 }>();
+
+const menuBtnEl = ref<HTMLButtonElement | null>(null);
+const menuOpen = ref(false);
+
+function onMenuClick() {
+  if (props.menuItems && props.menuItems.length) {
+    menuOpen.value = !menuOpen.value;
+  } else {
+    emit('menu');
+  }
+}
 
 const statusClass = computed(() => {
   switch (props.status) {
@@ -65,39 +92,38 @@ const statusClass = computed(() => {
 
 <style scoped>
 .connection-card {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
-  padding: 16px;
-  transition: all 0.2s ease;
+  padding: 14px 16px;
+  transition: border-color var(--t-fast);
 }
 
 .connection-card:hover {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(99, 102, 241, 0.15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-color: var(--accent);
 }
 
 .connection-card.disabled {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .card-header {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .card-icon {
-  font-size: 24px;
-  width: 40px;
-  height: 40px;
+  font-size: 22px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.1);
-  border-radius: 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
   flex-shrink: 0;
 }
 
@@ -109,13 +135,13 @@ const statusClass = computed(() => {
 .card-title {
   font-size: 14px;
   font-weight: 500;
-  color: #1f2937;
-  margin: 0 0 4px 0;
+  color: var(--text);
+  margin: 0 0 3px 0;
 }
 
 .card-subtitle {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-dim);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -125,31 +151,33 @@ const statusClass = computed(() => {
 .card-actions {
   display: flex;
   gap: 4px;
+  position: relative;
 }
 
 .menu-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-md);
   background: transparent;
-  color: #9ca3af;
+  color: var(--text-dim);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast), color var(--t-fast);
 }
 
-.menu-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #6b7280;
+.menu-btn:hover,
+.menu-btn.active {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .card-body {
   margin-bottom: 12px;
-  font-size: 13px;
-  color: #6b7280;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .card-footer {
@@ -160,39 +188,37 @@ const statusClass = computed(() => {
 }
 
 .action-btn {
-  padding: 6px 12px;
+  padding: 6px 14px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-md);
   font-size: 12px;
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast);
 }
 
 .action-btn.success {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  background: rgba(166, 227, 161, 0.12);
+  color: var(--success);
 }
-
 .action-btn.success:hover {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(166, 227, 161, 0.2);
 }
 
 .action-btn.danger {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(243, 139, 168, 0.12);
+  color: var(--danger);
 }
-
 .action-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(243, 139, 168, 0.2);
 }
 
 .action-btn.warning {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background: rgba(249, 226, 175, 0.12);
+  color: var(--warning);
 }
-
 .action-btn.warning:hover {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(249, 226, 175, 0.2);
 }
 </style>

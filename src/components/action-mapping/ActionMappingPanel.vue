@@ -46,16 +46,28 @@
       />
     </div>
 
-    <div v-if="showUnsavedDialog" class="dialog-overlay" @click="showUnsavedDialog = false">
-      <div class="dialog" @click.stop>
-        <h3>未保存的修改</h3>
-        <p>有未保存的修改，确定要返回吗？</p>
-        <div class="dialog-actions">
-          <button class="btn btn-secondary" @click="showUnsavedDialog = false">取消</button>
-          <button class="btn btn-primary" @click="confirmBack">确定</button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      v-model:visible="showUnsavedDialog"
+      title="未保存的修改"
+      message="有未保存的修改，确定要返回吗？"
+      confirm-text="确定返回"
+      confirm-class="primary"
+      @confirm="confirmBack"
+    />
+
+    <AppModal
+      :open="showSaveStatus"
+      :title="saveOk ? '保存成功' : '保存失败'"
+      max-width="380px"
+      @update:open="showSaveStatus = $event"
+    >
+      <p class="status-msg" :class="{ err: !saveOk }">
+        {{ saveOk ? '配置已保存' : `保存失败: ${error}` }}
+      </p>
+      <template #footer>
+        <button class="btn-ok" @click="showSaveStatus = false">好的</button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -64,6 +76,8 @@ import { ref, onMounted, computed } from "vue";
 import type { MappingFormData, TriggerKey, MotionInfo, ExpressionInfo } from "../../core/action/types";
 import { actionMappingService } from "../../core/action/actionMappingService";
 import MappingRow from "./MappingRow.vue";
+import ConfirmDialog from "../settings/shared/ConfirmDialog.vue";
+import AppModal from "../ui/AppModal.vue";
 
 const props = defineProps<{
   modelId: string;
@@ -78,6 +92,8 @@ const loading = ref(true);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const showUnsavedDialog = ref(false);
+const showSaveStatus = ref(false);
+const saveOk = ref(true);
 
 const mappings = ref<MappingFormData[]>([]);
 const originalMappings = ref<MappingFormData[]>([]);
@@ -146,10 +162,12 @@ async function onSave() {
   try {
     await actionMappingService.saveMappings(props.modelId, mappings.value);
     originalMappings.value = JSON.parse(JSON.stringify(mappings.value));
-    alert("配置已保存");
+    saveOk.value = true;
+    showSaveStatus.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
-    alert(`保存失败: ${error.value}`);
+    saveOk.value = false;
+    showSaveStatus.value = true;
   } finally {
     saving.value = false;
   }
@@ -200,38 +218,42 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #f5f6f7;
+  background: var(--bg-base);
+  color: var(--text);
+  margin: -24px;
 }
 
 .panel-header {
   display: flex;
   align-items: center;
-  padding: 16px 24px;
-  background: white;
-  border-bottom: 1px solid #e1e4e8;
-  gap: 16px;
+  padding: 12px 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
 }
 
 .back-btn {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: white;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
   cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
+  font-size: 12px;
+  transition: background var(--t-fast), color var(--t-fast);
 }
 
 .back-btn:hover {
-  background: #f0f2f5;
-  border-color: #c0c4c8;
+  background: var(--bg-elevated);
+  color: var(--text);
 }
 
 .panel-title {
   flex: 1;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--text);
 }
 
 .panel-actions {
@@ -240,37 +262,38 @@ onMounted(() => {
 }
 
 .btn {
-  padding: 8px 20px;
+  padding: 6px 16px;
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: var(--r-md);
+  font-size: 12px;
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background var(--t-fast);
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .btn-primary {
-  background: #4a90e2;
-  color: white;
+  background: var(--accent);
+  color: var(--bg-base);
+  font-weight: 600;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #357abd;
+  background: var(--accent-hover);
 }
 
 .btn-secondary {
-  background: white;
-  color: #666;
-  border: 1px solid #ddd;
+  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #f0f2f5;
+  background: var(--bg-hover-2);
 }
 
 .loading-state,
@@ -281,78 +304,80 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: #666;
+  color: var(--text-dim);
+  font-size: 13px;
 }
 
 .error-state {
-  color: #d32f2f;
+  color: var(--danger);
 }
 
 .error-state button {
-  margin-top: 16px;
-  padding: 8px 16px;
-  border: 1px solid #d32f2f;
-  border-radius: 4px;
-  background: white;
-  color: #d32f2f;
+  margin-top: 14px;
+  padding: 6px 14px;
+  border: 1px solid var(--danger);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--danger);
+  font-family: inherit;
   cursor: pointer;
 }
 
 .mapping-list {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px;
+}
+
+.mapping-list::-webkit-scrollbar {
+  width: 5px;
+}
+.mapping-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mapping-list::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
 }
 
 .section-divider {
-  margin: 24px 0 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #4a90e2;
-  font-size: 14px;
+  margin: 20px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--accent);
+  font-size: 12px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .section-divider:first-child {
   margin-top: 0;
 }
 
-.dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+.status-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.status-msg.err {
+  color: var(--danger);
 }
 
-.dialog {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  min-width: 400px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.btn-ok {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: var(--bg-base);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast);
 }
-
-.dialog h3 {
-  margin: 0 0 12px;
-  font-size: 16px;
-  color: #333;
-}
-
-.dialog p {
-  margin: 0 0 20px;
-  font-size: 14px;
-  color: #666;
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+.btn-ok:hover {
+  background: var(--accent-hover);
 }
 </style>

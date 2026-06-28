@@ -2,25 +2,30 @@
   <div class="motion-selector">
     <div class="selector-row">
       <label>分组:</label>
-      <select v-model="selectedGroup" :disabled="disabled" @change="onGroupChange">
-        <option value="">选择分组</option>
-        <option v-for="group in groups" :key="group" :value="group">{{ group }}</option>
-      </select>
+      <AppSelect
+        v-model="selectedGroup"
+        :options="groupOptions"
+        :disabled="disabled"
+        placeholder="选择分组"
+        @change="onGroupChange"
+      />
     </div>
     <div class="selector-row">
       <label>动作:</label>
-      <select v-model="selectedMotion" :disabled="disabled || !selectedGroup" @change="onMotionChange">
-        <option value="">选择动作</option>
-        <option v-for="motion in filteredMotions" :key="motion.name" :value="motion.name">
-          {{ motion.name }}
-        </option>
-      </select>
+      <AppSelect
+        v-model="selectedMotion"
+        :options="motionOptions"
+        :disabled="disabled || !selectedGroup"
+        placeholder="选择动作"
+        @change="onMotionChange"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import AppSelect, { type SelectOption } from "../ui/AppSelect.vue";
 import type { MotionInfo } from "../../core/action/types";
 
 const props = defineProps<{
@@ -36,16 +41,16 @@ const emit = defineEmits<{
 const selectedGroup = ref(props.modelValue.group);
 const selectedMotion = ref(props.modelValue.name);
 
-// Get unique groups
-const groups = computed(() => {
+const groupOptions = computed<SelectOption[]>(() => {
   const groupSet = new Set(props.motions.map((m) => m.group));
-  return Array.from(groupSet).sort();
+  return Array.from(groupSet).sort().map((g) => ({ value: g, label: g }));
 });
 
-// Filter motions by selected group
-const filteredMotions = computed(() => {
+const motionOptions = computed<SelectOption[]>(() => {
   if (!selectedGroup.value) return [];
-  return props.motions.filter((m) => m.group === selectedGroup.value);
+  return props.motions
+    .filter((m) => m.group === selectedGroup.value)
+    .map((m) => ({ value: m.name, label: m.name }));
 });
 
 function onGroupChange() {
@@ -60,7 +65,6 @@ function onMotionChange() {
   });
 }
 
-// Sync with parent value
 watch(
   () => props.modelValue,
   (newVal) => {
@@ -84,34 +88,9 @@ watch(
 }
 
 .selector-row label {
-  min-width: 50px;
-  font-size: 13px;
-  color: #666;
-}
-
-.selector-row select {
-  flex: 1;
-  padding: 6px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 13px;
-  background: white;
-  cursor: pointer;
-}
-
-.selector-row select:disabled {
-  background: #f5f5f5;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.selector-row select:hover:not(:disabled) {
-  border-color: #4a90e2;
-}
-
-.selector-row select:focus {
-  outline: none;
-  border-color: #4a90e2;
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+  min-width: 44px;
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
 }
 </style>

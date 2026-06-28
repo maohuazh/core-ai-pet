@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
+import AppSelect, { type SelectOption } from '@/components/ui/AppSelect.vue';
 import type { LLMConfig, LLMProvider } from '@/core/llm/types';
 
 const props = defineProps<{
@@ -21,6 +22,12 @@ const apiKey = ref(''); // Actual API key input (not secret_ref)
 const temperature = ref(0.7);
 const maxTokens = ref(4096);
 const existingSecretRef = ref(''); // Track existing secret_ref from loaded config
+
+const providerOptions: SelectOption[] = [
+  { value: 'anthropic', label: 'Anthropic (兼容协议)' },
+  { value: 'openai', label: 'OpenAI (兼容协议)' },
+  { value: 'mock', label: 'Mock (调试用)', disabled: true },
+];
 
 // UI state
 const testing = ref(false);
@@ -218,11 +225,11 @@ async function save() {
   <div class="llm-role-form">
     <div class="form-group">
       <label>Provider</label>
-      <select v-model="provider">
-        <option value="anthropic">Anthropic (兼容协议)</option>
-        <option value="openai">OpenAI (兼容协议)</option>
-        <option value="mock" disabled>Mock (调试用)</option>
-      </select>
+      <AppSelect
+        v-model="provider"
+        :options="providerOptions"
+        placeholder="选择 Provider"
+      />
     </div>
 
     <div class="form-group">
@@ -337,7 +344,7 @@ async function save() {
 .llm-role-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .form-group {
@@ -348,106 +355,106 @@ async function save() {
 
 label {
   font-weight: 500;
-  font-size: 14px;
-  color: #333;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 input, select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  transition: border-color 0.2s;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-base);
+  color: var(--text);
+  border-radius: var(--r-lg);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color var(--t-fast);
+}
+
+input::placeholder {
+  color: var(--text-dim);
 }
 
 input:focus, select:focus {
   outline: none;
-  border-color: #2196f3;
+  border-color: var(--accent);
 }
 
 input.error {
-  border-color: #d32f2f;
+  border-color: var(--danger);
 }
 
 .error-text {
-  color: #d32f2f;
-  font-size: 12px;
+  color: var(--danger);
+  font-size: 11px;
 }
 
 small {
-  color: #666;
-  font-size: 12px;
+  color: var(--text-dim);
+  font-size: 11px;
 }
 
 .actions {
   display: flex;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 button {
-  padding: 10px 20px;
+  padding: 7px 16px;
   border: none;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: var(--r-lg);
+  font-size: 13px;
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background var(--t-fast), color var(--t-fast);
 }
 
 button:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .test-btn {
-  background-color: #f5f5f5;
-  color: #333;
+  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .test-btn:hover:not(:disabled) {
-  background-color: #e0e0e0;
+  background: var(--bg-hover-2);
 }
 
 .save-btn {
-  background-color: #2196f3;
-  color: white;
+  background: var(--accent);
+  color: var(--bg-base);
+  font-weight: 600;
 }
 
 .save-btn:hover:not(:disabled) {
-  background-color: #1976d2;
+  background: var(--accent-hover);
 }
 
-.test-success {
-  padding: 12px;
-  background-color: #e8f5e9;
-  color: #2e7d32;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.test-error {
-  padding: 12px;
-  background-color: #ffebee;
-  color: #c62828;
-  border-radius: 4px;
-  font-size: 14px;
+.test-success,
+.save-success {
+  padding: 8px 12px;
+  background: rgba(166, 227, 161, 0.1);
+  color: var(--success);
+  border: 1px solid rgba(166, 227, 161, 0.3);
+  border-radius: var(--r-lg);
+  font-size: 12px;
 }
 
 .save-success {
-  padding: 12px;
-  background-color: #e8f5e9;
-  color: #2e7d32;
-  border-radius: 4px;
-  font-size: 14px;
   font-weight: 500;
 }
 
+.test-error,
 .save-error {
-  padding: 12px;
-  background-color: #ffebee;
-  color: #c62828;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 8px 12px;
+  background: rgba(243, 139, 168, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: var(--r-lg);
+  font-size: 12px;
 }
 </style>

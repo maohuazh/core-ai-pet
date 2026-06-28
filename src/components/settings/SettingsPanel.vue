@@ -36,10 +36,9 @@ const activeModule = ref<SettingsModule>('jira');
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: var(--font-sans);
   overflow: hidden;
 }
 
@@ -55,33 +54,23 @@ const activeModule = ref<SettingsModule>('jira');
   padding: 24px;
 }
 
-/* Fade transition for module switching */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.25s ease-in-out;
+  transition: opacity var(--t-med) ease-in-out;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
 
-/* Scrollbar styling */
 .settings-main::-webkit-scrollbar {
-  width: 8px;
+  width: 5px;
 }
-
 .settings-main::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 4px;
+  background: transparent;
 }
-
 .settings-main::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-}
-
-.settings-main::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--border-strong);
+  border-radius: 3px;
 }
 </style>

@@ -31,13 +31,27 @@
                 <span v-if="model.version"> · v{{ model.version }}</span>
               </p>
             </div>
-            <button class="menu-btn" @click.stop="handleMenu(model)">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle cx="8" cy="3" r="1.5" fill="currentColor" />
-                <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-                <circle cx="8" cy="13" r="1.5" fill="currentColor" />
-              </svg>
-            </button>
+            <div class="menu-wrap">
+              <button
+                :ref="(el) => setMenuBtnRef(model.id, el)"
+                class="menu-btn"
+                :class="{ active: openMenuId === model.id }"
+                @click.stop="toggleMenu(model)"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="3" r="1.5" fill="currentColor" />
+                  <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                  <circle cx="8" cy="13" r="1.5" fill="currentColor" />
+                </svg>
+              </button>
+              <AppMenu
+                :open="openMenuId === model.id"
+                :anchor="menuBtnRefs[model.id] ?? null"
+                :items="buildMenuItems(model)"
+                placement="bottom-end"
+                @update:open="(v) => (openMenuId = v ? model.id : null)"
+              />
+            </div>
           </div>
           <div v-if="model.description" class="model-description">
             {{ model.description }}
@@ -88,6 +102,28 @@
       confirm-class="danger"
       @confirm="confirmDelete"
     />
+
+    <RenameModal
+      v-model:visible="showRenameModal"
+      :initial-value="renameTarget?.name ?? ''"
+      title="编辑宠物名称"
+      label="名称"
+      @submit="onRenameSubmit"
+    />
+
+    <ComingSoonModal v-model:visible="showComingSoon" :message="comingSoonMessage" />
+
+    <AppModal
+      :open="showActiveBlock"
+      title="无法删除"
+      max-width="360px"
+      @update:open="showActiveBlock = $event"
+    >
+      <p class="block-msg">无法删除当前活跃的宠物，请先切换到其他宠物。</p>
+      <template #footer>
+        <button class="btn-ok" @click="showActiveBlock = false">好的</button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -96,6 +132,10 @@ import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import EmptyState from '../shared/EmptyState.vue';
 import ConfirmDialog from '../shared/ConfirmDialog.vue';
+import RenameModal from '../shared/RenameModal.vue';
+import ComingSoonModal from '../shared/ComingSoonModal.vue';
+import AppModal from '../../ui/AppModal.vue';
+import AppMenu, { type MenuItem } from '../../ui/AppMenu.vue';
 import ActionMappingPanel from '../../action-mapping/ActionMappingPanel.vue';
 import type { Model } from '../types';
 
@@ -104,6 +144,19 @@ const showDeleteDialog = ref(false);
 const selectedModel = ref<Model | null>(null);
 const showMappingPanel = ref(false);
 const selectedMappingModel = ref<Model | null>(null);
+
+const showRenameModal = ref(false);
+const renameTarget = ref<Model | null>(null);
+const showComingSoon = ref(false);
+const comingSoonMessage = ref('');
+const showActiveBlock = ref(false);
+
+const openMenuId = ref<string | null>(null);
+const menuBtnRefs = ref<Record<string, HTMLElement | null>>({});
+
+function setMenuBtnRef(id: string, el: any) {
+  menuBtnRefs.value[id] = el as HTMLElement | null;
+}
 
 const loadModels = async () => {
   try {
@@ -116,7 +169,6 @@ const loadModels = async () => {
 const handleActivate = async (model: Model) => {
   try {
     await invoke('set_active_model', { id: model.id });
-    // Update local state
     models.value.forEach((m) => {
       m.status = m.id === model.id ? 'active' : 'inactive';
     });
@@ -130,27 +182,49 @@ const handleActions = (model: Model) => {
   showMappingPanel.value = true;
 };
 
-const handleMenu = (model: Model) => {
-  const action = prompt(`操作: ${model.name}\n1. 编辑名称\n2. 删除\n请输入选项 (1/2):`);
-  if (action === '1') {
-    const newName = prompt('请输入新名称:', model.name);
-    if (newName && newName !== model.name) {
-      invoke('update_model', { id: model.id, name: newName })
-        .then(() => {
-          model.name = newName;
-        })
-        .catch((error) => {
-          console.error('Failed to update model:', error);
-        });
-    }
-  } else if (action === '2') {
-    handleDelete(model);
+function toggleMenu(model: Model) {
+  openMenuId.value = openMenuId.value === model.id ? null : model.id;
+}
+
+function buildMenuItems(model: Model): MenuItem[] {
+  const items: MenuItem[] = [
+    {
+      id: 'rename',
+      label: '编辑名称',
+      icon: '✏️',
+      onSelect: () => {
+        renameTarget.value = model;
+        showRenameModal.value = true;
+      },
+    },
+  ];
+  if (model.source !== 'builtin') {
+    items.push({ kind: 'divider' });
+    items.push({
+      id: 'delete',
+      label: '删除',
+      icon: '🗑',
+      danger: true,
+      onSelect: () => handleDelete(model),
+    });
   }
-};
+  return items;
+}
+
+async function onRenameSubmit(newName: string) {
+  if (!renameTarget.value) return;
+  const target = renameTarget.value;
+  try {
+    await invoke('update_model', { id: target.id, name: newName });
+    target.name = newName;
+  } catch (error) {
+    console.error('Failed to update model:', error);
+  }
+}
 
 const handleDelete = (model: Model) => {
   if (model.status === 'active') {
-    alert('无法删除当前活跃的宠物，请先切换到其他宠物');
+    showActiveBlock.value = true;
     return;
   }
   selectedModel.value = model;
@@ -168,7 +242,8 @@ const confirmDelete = async () => {
 };
 
 const handleImport = () => {
-  alert('宠物导入功能开发中');
+  comingSoonMessage.value = '宠物导入功能开发中';
+  showComingSoon.value = true;
 };
 
 onMounted(() => {
@@ -190,75 +265,68 @@ onMounted(() => {
 }
 
 .module-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text);
   margin: 0;
 }
 
 .add-btn {
-  padding: 8px 16px;
+  padding: 7px 14px;
   border: none;
-  border-radius: 8px;
-  background: #6366f1;
-  color: white;
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: var(--bg-base);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast);
 }
 
 .add-btn:hover {
-  background: #818cf8;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
-}
-
-.add-btn:active {
-  background: #4f46e5;
-  transform: translateY(0);
+  background: var(--accent-hover);
 }
 
 .module-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .model-card {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
-  padding: 16px;
-  transition: all 0.2s ease;
+  padding: 14px 16px;
+  transition: border-color var(--t-fast);
 }
 
 .model-card:hover {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(99, 102, 241, 0.15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-color: var(--accent);
 }
 
 .model-card.active {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid var(--accent);
 }
 
 .model-header {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .model-icon {
-  font-size: 24px;
-  width: 40px;
-  height: 40px;
+  font-size: 22px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.1);
-  border-radius: 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
   flex-shrink: 0;
 }
 
@@ -270,40 +338,45 @@ onMounted(() => {
 .model-name {
   font-size: 14px;
   font-weight: 500;
-  color: #1f2937;
-  margin: 0 0 4px 0;
+  color: var(--text);
+  margin: 0 0 3px 0;
 }
 
 .model-meta {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-dim);
   margin: 0;
 }
 
+.menu-wrap {
+  position: relative;
+}
+
 .menu-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-md);
   background: transparent;
-  color: #9ca3af;
+  color: var(--text-dim);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast), color var(--t-fast);
 }
 
-.menu-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #6b7280;
+.menu-btn:hover,
+.menu-btn.active {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .model-description {
-  font-size: 13px;
-  color: #6b7280;
+  font-size: 12px;
+  color: var(--text-muted);
   margin-bottom: 12px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .model-actions {
@@ -315,44 +388,68 @@ onMounted(() => {
 .action-btn {
   padding: 6px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-md);
   font-size: 12px;
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast);
 }
 
 .action-btn.active {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  background: rgba(166, 227, 161, 0.12);
+  color: var(--success);
   cursor: not-allowed;
 }
 
 .action-btn.primary {
-  background: #6366f1;
-  color: white;
+  background: var(--accent);
+  color: var(--bg-base);
 }
 
 .action-btn.primary:hover {
-  background: #818cf8;
+  background: var(--accent-hover);
 }
 
 .action-btn.secondary {
-  background: rgba(0, 0, 0, 0.05);
-  color: #6b7280;
+  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .action-btn.secondary:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #1f2937;
+  background: var(--bg-hover-2);
 }
 
 .action-btn.danger {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(243, 139, 168, 0.12);
+  color: var(--danger);
 }
 
 .action-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(243, 139, 168, 0.2);
+}
+
+.block-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.btn-ok {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: var(--bg-base);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.btn-ok:hover {
+  background: var(--accent-hover);
 }
 </style>

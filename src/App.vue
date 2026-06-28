@@ -1,11 +1,35 @@
 <template>
   <ChatWindow v-if="isChatRoute" />
   <SettingsPanel v-else-if="isSettingsRoute" />
-  <div v-else class="pet-container" @dblclick="openChat">
+  <div
+    v-else
+    class="pet-container"
+    @dblclick="openChat"
+    @contextmenu.prevent="onContextMenu"
+  >
     <Live2DCanvas ref="canvasRef" />
-    <WindowCloseButton v-if="showMenu" />
-    <PetHoverMenu v-if="showMenu" :on-action="handleMenuAction" />
+    <WindowCloseButton v-if="showMenu && !contextMenuOpen" />
+    <PetHoverMenu v-if="showMenu && !contextMenuOpen" :on-action="handleMenuAction" />
   </div>
+
+  <AppMenu
+    :open="contextMenuOpen"
+    :anchor="contextMenuAnchor"
+    :items="contextMenuItems"
+    @update:open="contextMenuOpen = $event"
+  />
+
+  <AppModal
+    :open="showComingSoon"
+    title="敬请期待"
+    max-width="360px"
+    @update:open="showComingSoon = $event"
+  >
+    <p class="coming-soon-msg">{{ comingSoonMsg }}</p>
+    <template #footer>
+      <button class="btn-ok" @click="showComingSoon = false">好的</button>
+    </template>
+  </AppModal>
 </template>
 
 <script setup lang="ts">
@@ -16,11 +40,14 @@ import WindowCloseButton from "./components/WindowCloseButton.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
 import ChatWindow from "./modules/chat/ChatWindow.vue";
 import SettingsPanel from "./components/settings/SettingsPanel.vue";
+import AppModal from "./components/ui/AppModal.vue";
+import AppMenu, { type MenuItem } from "./components/ui/AppMenu.vue";
 import { invoke } from "@tauri-apps/api/core";
 import { modelRegistry } from "./core/model/ModelRegistry";
 import { petStore } from "./core/model/PetStore";
 import { registerTriggerExecutor, unregisterTriggerExecutor } from "./core/action/triggerExecutor";
 import { AVAILABLE_EFFECTS } from "./core/action/effects";
+import { petMenuItems } from "./core/pet/petMenu";
 
 // Check current route
 const isSettingsRoute = computed(() => window.location.pathname === "/settings");
@@ -28,6 +55,19 @@ const isChatRoute = computed(() => window.location.pathname === "/chat");
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
 const showMenu = ref(false);
+const showComingSoon = ref(false);
+const comingSoonMsg = ref("");
+
+// Right-click context menu
+const contextMenuAnchor = ref<{ x: number; y: number } | null>(null);
+const contextMenuOpen = ref(false);
+
+const contextMenuItems: MenuItem[] = petMenuItems.map((item) => ({
+  id: item.action,
+  label: item.label,
+  icon: item.icon,
+  onSelect: () => handleMenuAction(item.action),
+}));
 
 let unlistenStart: UnlistenFn | null = null;
 let unlistenEnd: UnlistenFn | null = null;
@@ -180,6 +220,12 @@ function openChat() {
   invoke("open_chat_window").catch((e) => console.error("Failed to open chat window:", e));
 }
 
+/** Show context menu at cursor position */
+function onContextMenu(e: MouseEvent) {
+  contextMenuAnchor.value = { x: e.clientX, y: e.clientY };
+  contextMenuOpen.value = true;
+}
+
 /** Show a floating emoji effect above/near the pet */
 function showEffect(effectName: string, duration: number, position: string) {
   const effect = AVAILABLE_EFFECTS.find((e) => e.id === effectName);
@@ -244,7 +290,8 @@ const handleMenuAction = async (action: string) => {
   }
 
   const label = actionLabels[action] ?? action;
-  alert(`${label}功能即将推出`);
+  comingSoonMsg.value = `${label}功能即将推出`;
+  showComingSoon.value = true;
 };
 </script>
 
@@ -267,5 +314,31 @@ html, body {
   height: 100vh;
   position: relative;
   background: transparent;
+}
+</style>
+
+<style scoped>
+.coming-soon-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.btn-ok {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: var(--bg-base);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.btn-ok:hover {
+  background: var(--accent-hover);
 }
 </style>

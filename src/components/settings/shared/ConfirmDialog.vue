@@ -1,27 +1,28 @@
 <template>
-  <Teleport to="body">
-    <Transition name="fade">
-      <div v-if="visible" class="dialog-overlay" @click="handleOverlayClick">
-        <div class="dialog-container" @click.stop>
-          <div class="dialog-header">
-            <h3 class="dialog-title">{{ title }}</h3>
-          </div>
-          <div class="dialog-body">
-            <p class="dialog-message">{{ message }}</p>
-          </div>
-          <div class="dialog-footer">
-            <button class="dialog-btn cancel-btn" @click="cancel">{{ cancelText }}</button>
-            <button :class="['dialog-btn', 'confirm-btn', confirmClass]" @click="confirm">
-              {{ confirmText }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  <AppModal
+    :open="visible"
+    :title="title"
+    :close-on-overlay="closeOnOverlay"
+    :max-width="'420px'"
+    @update:open="onOpenChange"
+  >
+    <p class="dialog-message">{{ message }}</p>
+    <template #footer>
+      <button class="dialog-btn cancel-btn" @click="cancel">{{ cancelText }}</button>
+      <button :class="['dialog-btn', 'confirm-btn', confirmClass]" @click="confirm">
+        {{ confirmText }}
+      </button>
+    </template>
+  </AppModal>
 </template>
 
 <script setup lang="ts">
+/**
+ * 兼容包装：保留原 ConfirmDialog 的 props/emits，内部委托给 AppModal。
+ * 现有所有 `<ConfirmDialog v-model:visible @confirm @cancel>` 调用方零改动。
+ */
+import AppModal from '../../ui/AppModal.vue';
+
 const props = withDefaults(
   defineProps<{
     visible: boolean;
@@ -47,132 +48,71 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
-const handleOverlayClick = () => {
-  if (props.closeOnOverlay) {
-    emit('update:visible', false);
-  }
-};
+function onOpenChange(v: boolean) {
+  // AppModal 通过 ESC / 遮罩 / 右上角 X 关闭时，等同于 cancel
+  if (!v && props.visible) emit('cancel');
+  emit('update:visible', v);
+}
 
-const confirm = () => {
+function confirm() {
   emit('confirm');
   emit('update:visible', false);
-};
-
-const cancel = () => {
+}
+function cancel() {
   emit('cancel');
   emit('update:visible', false);
-};
+}
 </script>
 
 <style scoped>
-.dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.dialog-container {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  min-width: 320px;
-  max-width: 480px;
-  overflow: hidden;
-}
-
-.dialog-header {
-  padding: 20px 24px 0;
-}
-
-.dialog-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.dialog-body {
-  padding: 16px 24px;
-}
-
 .dialog-message {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 13px;
+  color: var(--text-muted);
   margin: 0;
-  line-height: 1.5;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 0 24px 20px;
+  line-height: 1.55;
 }
 
 .dialog-btn {
-  padding: 8px 16px;
+  padding: 7px 16px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-lg);
   font-size: 13px;
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast), color var(--t-fast);
 }
 
 .cancel-btn {
-  background: rgba(0, 0, 0, 0.05);
-  color: #6b7280;
+  background: transparent;
+  color: var(--text-muted);
 }
-
 .cancel-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #1f2937;
+  background: var(--bg-elevated);
+  color: var(--text);
 }
 
 .confirm-btn.primary {
-  background: #6366f1;
-  color: white;
+  background: var(--accent);
+  color: var(--bg-base);
 }
-
 .confirm-btn.primary:hover {
-  background: #818cf8;
+  background: var(--accent-hover);
 }
 
 .confirm-btn.danger {
-  background: #ef4444;
-  color: white;
+  background: var(--danger);
+  color: var(--bg-base);
 }
-
 .confirm-btn.danger:hover {
-  background: #f87171;
+  background: #f5a3b8;
 }
 
 .confirm-btn.warning {
-  background: #f59e0b;
-  color: white;
+  background: var(--warning);
+  color: var(--bg-base);
 }
-
 .confirm-btn.warning:hover {
-  background: #fbbf24;
-}
-
-/* Fade transition */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+  background: #fbe9bb;
 }
 </style>

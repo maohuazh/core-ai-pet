@@ -1,17 +1,19 @@
 <template>
   <div class="expression-selector">
     <label>表情:</label>
-    <select v-model="selectedExpression" :disabled="disabled" @change="onChange">
-      <option value="">选择表情</option>
-      <option v-for="expr in expressions" :key="expr.name" :value="expr.name">
-        {{ expr.display_name || expr.name }}
-      </option>
-    </select>
+    <AppSelect
+      v-model="selectedExpression"
+      :options="expressionOptions"
+      :disabled="disabled"
+      placeholder="选择表情"
+      @change="onChange"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
+import AppSelect, { type SelectOption } from "../ui/AppSelect.vue";
 import type { ExpressionInfo } from "../../core/action/types";
 
 const props = defineProps<{
@@ -26,11 +28,17 @@ const emit = defineEmits<{
 
 const selectedExpression = ref(props.modelValue);
 
+const expressionOptions = computed<SelectOption[]>(() =>
+  props.expressions.map((e) => ({
+    value: e.name,
+    label: e.display_name || e.name,
+  }))
+);
+
 function onChange() {
   emit("update:modelValue", selectedExpression.value);
 }
 
-// Sync with parent value
 watch(
   () => props.modelValue,
   (newVal) => {
@@ -47,34 +55,9 @@ watch(
 }
 
 .expression-selector label {
-  min-width: 50px;
-  font-size: 13px;
-  color: #666;
-}
-
-.expression-selector select {
-  flex: 1;
-  padding: 6px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 13px;
-  background: white;
-  cursor: pointer;
-}
-
-.expression-selector select:disabled {
-  background: #f5f5f5;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.expression-selector select:hover:not(:disabled) {
-  border-color: #4a90e2;
-}
-
-.expression-selector select:focus {
-  outline: none;
-  border-color: #4a90e2;
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+  min-width: 44px;
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
 }
 </style>

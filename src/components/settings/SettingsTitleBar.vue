@@ -45,8 +45,8 @@ const close = async () => {
   justify-content: space-between;
   height: 48px;
   padding: 0 16px;
-  background: rgba(255, 255, 255, 0.4);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
   user-select: none;
   cursor: default;
 }
@@ -62,7 +62,7 @@ const close = async () => {
 .titlebar-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text);
   margin-left: 4px;
   pointer-events: none;
 }
@@ -77,32 +77,27 @@ const close = async () => {
   width: 32px;
   height: 32px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-lg);
   background: transparent;
-  color: #6b7280;
+  color: var(--text-dim);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast), color var(--t-fast);
 }
 
 .titlebar-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #1f2937;
+  background: var(--bg-elevated);
+  color: var(--text);
 }
 
 .titlebar-btn:active {
-  background: rgba(0, 0, 0, 0.08);
-  transform: scale(0.95);
+  background: var(--bg-hover);
 }
 
 .close-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.close-btn:hover:active {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(243, 139, 168, 0.12);
+  color: var(--danger);
 }
 </style>

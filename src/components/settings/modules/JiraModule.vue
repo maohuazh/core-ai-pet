@@ -20,9 +20,9 @@
         :status="conn.status"
         :enabled="conn.enabled"
         :action-label="getActionLabel(conn.status)"
+        :menu-items="buildMenuItems(conn)"
         @toggle="handleToggle(conn.id, $event)"
         @action="handleAction(conn)"
-        @menu="handleMenu(conn)"
       >
         <template #icon>🔗</template>
         <div class="conn-details">
@@ -41,6 +41,16 @@
       confirm-class="danger"
       @confirm="confirmDelete"
     />
+
+    <RenameModal
+      v-model:visible="showRenameModal"
+      :initial-value="renameTarget?.name ?? ''"
+      title="编辑连接名称"
+      label="名称"
+      @submit="onRenameSubmit"
+    />
+
+    <ComingSoonModal v-model:visible="showComingSoon" :message="comingSoonMessage" />
   </div>
 </template>
 
@@ -50,11 +60,18 @@ import { invoke } from '@tauri-apps/api/core';
 import ConnectionCard from '../shared/ConnectionCard.vue';
 import EmptyState from '../shared/EmptyState.vue';
 import ConfirmDialog from '../shared/ConfirmDialog.vue';
+import RenameModal from '../shared/RenameModal.vue';
+import ComingSoonModal from '../shared/ComingSoonModal.vue';
+import type { MenuItem } from '../../ui/AppMenu.vue';
 import type { JiraConnection } from '../types';
 
 const connections = ref<JiraConnection[]>([]);
 const showDeleteDialog = ref(false);
 const selectedConnection = ref<JiraConnection | null>(null);
+const showRenameModal = ref(false);
+const renameTarget = ref<JiraConnection | null>(null);
+const showComingSoon = ref(false);
+const comingSoonMessage = ref('');
 
 const loadConnections = async () => {
   try {
@@ -78,33 +95,48 @@ const handleToggle = async (id: string, enabled: boolean) => {
 
 const handleAction = (conn: JiraConnection) => {
   if (conn.status === 'connected') {
-    // Revoke authorization
     selectedConnection.value = conn;
     showDeleteDialog.value = true;
   } else {
-    // Re-authorize
-    alert('重新授权功能开发中');
+    openComingSoon('重新授权功能开发中');
   }
 };
 
-const handleMenu = (conn: JiraConnection) => {
-  const action = prompt(`操作: ${conn.name}\n1. 编辑名称\n2. 删除\n请输入选项 (1/2):`);
-  if (action === '1') {
-    const newName = prompt('请输入新名称:', conn.name);
-    if (newName && newName !== conn.name) {
-      invoke('update_jira_connection', { id: conn.id, name: newName })
-        .then(() => {
-          conn.name = newName;
-        })
-        .catch((error) => {
-          console.error('Failed to update connection:', error);
-        });
-    }
-  } else if (action === '2') {
-    selectedConnection.value = conn;
-    showDeleteDialog.value = true;
+function buildMenuItems(conn: JiraConnection): MenuItem[] {
+  return [
+    {
+      id: 'rename',
+      label: '编辑名称',
+      icon: '✏️',
+      onSelect: () => {
+        renameTarget.value = conn;
+        showRenameModal.value = true;
+      },
+    },
+    { kind: 'divider' },
+    {
+      id: 'delete',
+      label: '删除',
+      icon: '🗑',
+      danger: true,
+      onSelect: () => {
+        selectedConnection.value = conn;
+        showDeleteDialog.value = true;
+      },
+    },
+  ];
+}
+
+async function onRenameSubmit(newName: string) {
+  if (!renameTarget.value) return;
+  const target = renameTarget.value;
+  try {
+    await invoke('update_jira_connection', { id: target.id, name: newName });
+    target.name = newName;
+  } catch (error) {
+    console.error('Failed to update connection:', error);
   }
-};
+}
 
 const confirmDelete = async () => {
   if (!selectedConnection.value) return;
@@ -117,8 +149,13 @@ const confirmDelete = async () => {
 };
 
 const handleAdd = () => {
-  alert('添加 Jira 连接功能开发中');
+  openComingSoon('添加 Jira 连接功能开发中');
 };
+
+function openComingSoon(msg: string) {
+  comingSoonMessage.value = msg;
+  showComingSoon.value = true;
+}
 
 const getActionLabel = (status: string) => {
   switch (status) {
@@ -157,44 +194,38 @@ onMounted(() => {
 }
 
 .module-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text);
   margin: 0;
 }
 
 .add-btn {
-  padding: 8px 16px;
+  padding: 7px 14px;
   border: none;
-  border-radius: 8px;
-  background: #6366f1;
-  color: white;
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: var(--bg-base);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--t-fast);
 }
 
 .add-btn:hover {
-  background: #818cf8;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
-}
-
-.add-btn:active {
-  background: #4f46e5;
-  transform: translateY(0);
+  background: var(--accent-hover);
 }
 
 .module-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .conn-details {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-dim);
   line-height: 1.6;
 }
 
