@@ -21,10 +21,23 @@ pub struct ConfigEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub id: Option<i64>,
+    pub session_id: Option<String>,
+    pub turn_id: Option<String>,
     pub role: String,
     pub content: String,
+    pub message_type: String, // "text", "thinking", "tool_call", "tool_result"
     pub timestamp: u64,
     pub metadata: Option<String>,
+}
+
+/// 聊天会话
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatSession {
+    pub id: String,
+    pub title: String,
+    pub workspace: Option<String>,
+    pub created_at: u64,
+    pub updated_at: u64,
 }
 
 /// 窗口位置
@@ -191,6 +204,15 @@ impl Database {
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
 
+            -- 聊天会话
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT '新对话',
+                workspace TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+
             -- 索引
             CREATE INDEX IF NOT EXISTS idx_jira_enabled ON jira_connections(enabled);
             CREATE INDEX IF NOT EXISTS idx_jira_status ON jira_connections(status);
@@ -252,6 +274,24 @@ impl Database {
                  ALTER TABLE model_action_mappings ADD COLUMN effect_position TEXT DEFAULT 'center';",
             )?;
             log::info!("Migration: added effect_duration and effect_position columns to model_action_mappings table");
+        }
+
+        // Migration: add session_id, turn_id, message_type to chat_history
+        let has_session_id: bool = conn
+            .prepare("PRAGMA table_info(chat_history)")?
+            .query_map([], |row| {
+                let name: String = row.get(1)?;
+                Ok(name == "session_id")
+            })?
+            .any(|r| r.unwrap_or(false));
+
+        if !has_session_id {
+            conn.execute_batch(
+                "ALTER TABLE chat_history ADD COLUMN session_id TEXT;
+                 ALTER TABLE chat_history ADD COLUMN turn_id TEXT;
+                 ALTER TABLE chat_history ADD COLUMN message_type TEXT NOT NULL DEFAULT 'text';",
+            )?;
+            log::info!("Migration: added session_id, turn_id, message_type columns to chat_history");
         }
 
         Ok(())
@@ -362,39 +402,141 @@ impl Database {
 
     // === Chat History 操作 ===
 
-    /// 存储聊天消息
-    pub fn chat_store(&self, role: &str, content: &str, metadata: Option<&str>) -> Result<i64> {
+    /// 存储聊天消息（支持会话关联）
+    pub fn chat_store(
+        &self,
+        session_id: Option<&str>,
+        turn_id: Option<&str>,
+        role: &str,
+        content: &str,
+        message_type: Option<&str>,
+        metadata: Option<&str>,
+    ) -> Result<i64> {
         let now = current_timestamp();
+        let msg_type = message_type.unwrap_or("text");
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO chat_history (role, content, timestamp, metadata) VALUES (?1, ?2, ?3, ?4)",
-            params![role, content, now, metadata],
+            "INSERT INTO chat_history (session_id, turn_id, role, content, message_type, timestamp, metadata)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![session_id, turn_id, role, content, msg_type, now, metadata],
         )?;
         Ok(conn.last_insert_rowid())
     }
 
-    /// 获取聊天记录列表（按时间倒序）
-    pub fn chat_list(&self, limit: i64, offset: i64) -> Result<Vec<ChatMessage>> {
+    /// 获取指定会话的消息列表（按时间正序）
+    pub fn chat_list_by_session(&self, session_id: &str) -> Result<Vec<ChatMessage>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, role, content, timestamp, metadata FROM chat_history
-             ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2",
+            "SELECT id, session_id, turn_id, role, content, message_type, timestamp, metadata
+             FROM chat_history WHERE session_id = ?1 ORDER BY timestamp ASC",
         )?;
-        let rows = stmt.query_map(params![limit, offset], |row| {
+        let rows = stmt.query_map(params![session_id], |row| {
             Ok(ChatMessage {
-                id: Some(row.get(0)?),
-                role: row.get(1)?,
-                content: row.get(2)?,
-                timestamp: row.get(3)?,
-                metadata: row.get(4)?,
+                id: row.get(0)?,
+                session_id: row.get(1)?,
+                turn_id: row.get(2)?,
+                role: row.get(3)?,
+                content: row.get(4)?,
+                message_type: row.get(5)?,
+                timestamp: row.get(6)?,
+                metadata: row.get(7)?,
             })
         })?;
-
         let mut messages = Vec::new();
         for row in rows {
             messages.push(row?);
         }
         Ok(messages)
+    }
+
+    /// 获取聊天记录列表（按时间倒序，向后兼容）
+    pub fn chat_list(&self, limit: i64, offset: i64) -> Result<Vec<ChatMessage>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, session_id, turn_id, role, content, message_type, timestamp, metadata
+             FROM chat_history ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2",
+        )?;
+        let rows = stmt.query_map(params![limit, offset], |row| {
+            Ok(ChatMessage {
+                id: row.get(0)?,
+                session_id: row.get(1)?,
+                turn_id: row.get(2)?,
+                role: row.get(3)?,
+                content: row.get(4)?,
+                message_type: row.get(5)?,
+                timestamp: row.get(6)?,
+                metadata: row.get(7)?,
+            })
+        })?;
+        let mut messages = Vec::new();
+        for row in rows {
+            messages.push(row?);
+        }
+        Ok(messages)
+    }
+
+    // === Chat Session 操作 ===
+
+    /// 创建新会话
+    pub fn create_session(&self, id: &str, title: &str, workspace: Option<&str>) -> Result<()> {
+        let now = current_timestamp();
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO chat_sessions (id, title, workspace, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![id, title, workspace, now, now],
+        )?;
+        Ok(())
+    }
+
+    /// 获取所有会话（按更新时间倒序）
+    pub fn list_sessions(&self) -> Result<Vec<ChatSession>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, title, workspace, created_at, updated_at
+             FROM chat_sessions ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(ChatSession {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                workspace: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })?;
+        let mut sessions = Vec::new();
+        for row in rows {
+            sessions.push(row?);
+        }
+        Ok(sessions)
+    }
+
+    /// 更新会话标题、工作区和更新时间
+    pub fn update_session(&self, id: &str, title: Option<&str>, workspace: Option<&str>) -> Result<()> {
+        let now = current_timestamp();
+        let conn = self.conn.lock().unwrap();
+        if let Some(t) = title {
+            conn.execute(
+                "UPDATE chat_sessions SET title = ?1, updated_at = ?2 WHERE id = ?3",
+                params![t, now, id],
+            )?;
+        }
+        if let Some(w) = workspace {
+            conn.execute(
+                "UPDATE chat_sessions SET workspace = ?1, updated_at = ?2 WHERE id = ?3",
+                params![w, now, id],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// 删除会话及其消息
+    pub fn delete_session(&self, id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM chat_history WHERE session_id = ?1", params![id])?;
+        conn.execute("DELETE FROM chat_sessions WHERE id = ?1", params![id])?;
+        Ok(())
     }
 
     // === Window Position 操作 ===
@@ -555,16 +697,24 @@ mod tests {
     #[test]
     fn test_chat_store_and_list() {
         let (db, path) = test_db();
-        db.chat_store("user", "Hello", None).unwrap();
-        db.chat_store("assistant", "Hi there!", Some("{\"model\":\"gpt4\"}"))
+        db.create_session("s1", "Test Session", None).unwrap();
+        db.chat_store(Some("s1"), None, "user", "Hello", None, None).unwrap();
+        db.chat_store(Some("s1"), None, "assistant", "Hi there!", None, Some("{\"model\":\"gpt4\"}"))
             .unwrap();
 
-        let messages = db.chat_list(10, 0).unwrap();
+        let messages = db.chat_list_by_session("s1").unwrap();
         assert_eq!(messages.len(), 2);
-        // Most recent first
-        assert_eq!(messages[0].role, "assistant");
-        assert_eq!(messages[1].role, "user");
-        assert_eq!(messages[0].metadata, Some("{\"model\":\"gpt4\"}".to_string()));
+        assert_eq!(messages[0].role, "user");
+        assert_eq!(messages[1].role, "assistant");
+        assert_eq!(messages[1].metadata, Some("{\"model\":\"gpt4\"}".to_string()));
+
+        let sessions = db.list_sessions().unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].title, "Test Session");
+
+        db.delete_session("s1").unwrap();
+        let sessions = db.list_sessions().unwrap();
+        assert_eq!(sessions.len(), 0);
 
         let _ = fs::remove_file(&path);
     }

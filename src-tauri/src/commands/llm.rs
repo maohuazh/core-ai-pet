@@ -259,7 +259,12 @@ async fn anthropic_ping(
         .base_url
         .as_deref()
         .unwrap_or("https://api.anthropic.com");
-    let url = format!("{}/v1/messages", base_url);
+    let base = base_url.trim_end_matches('/');
+    let url = if base.ends_with("/v1") {
+        format!("{}/messages", base)
+    } else {
+        format!("{}/v1/messages", base)
+    };
 
     let body = serde_json::json!({
         "model": cfg.model,
@@ -335,7 +340,12 @@ async fn openai_ping(
     api_key: &str,
 ) -> Result<TestConnectionPayload, ErrorPayload> {
     let base_url = cfg.base_url.as_deref().unwrap_or("https://api.openai.com");
-    let url = format!("{}/v1/chat/completions", base_url);
+    let base = base_url.trim_end_matches('/');
+    let url = if base.ends_with("/v1") {
+        format!("{}/chat/completions", base)
+    } else {
+        format!("{}/v1/chat/completions", base)
+    };
 
     let body = serde_json::json!({
         "model": cfg.model,
@@ -528,18 +538,25 @@ async fn anthropic_stream(
         .base_url
         .as_deref()
         .unwrap_or("https://api.anthropic.com");
-    let url = format!("{}/v1/messages", base_url);
+    let base = base_url.trim_end_matches('/');
+    let url = if base.ends_with("/v1") {
+        format!("{}/messages", base)
+    } else {
+        format!("{}/v1/messages", base)
+    };
 
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "model": cfg.model,
-        "max_tokens": cfg.params.max_tokens,
+        "max_tokens": cfg.params.max_tokens.min(131072),
         "stream": true,
-        "system": request.system,
         "messages": request.messages.iter().map(|m| serde_json::json!({
             "role": m.role,
             "content": m.content,
         })).collect::<Vec<_>>()
     });
+    if let Some(ref system) = request.system {
+        body["system"] = serde_json::Value::String(system.clone());
+    }
 
     let client = reqwest::Client::new();
     let resp = match client
@@ -548,6 +565,8 @@ async fn anthropic_stream(
         .header("anthropic-version", "2023-06-01")
         .header("content-type", "application/json")
         .header("accept", "text/event-stream")
+        .header("User-Agent", "claude-cli/1.0.0 (external, cli)")
+        .header("x-app", "claude-code")
         .json(&body)
         .send()
         .await
@@ -724,7 +743,12 @@ async fn openai_stream(
     use futures_util::StreamExt;
 
     let base_url = cfg.base_url.as_deref().unwrap_or("https://api.openai.com");
-    let url = format!("{}/v1/chat/completions", base_url);
+    let base = base_url.trim_end_matches('/');
+    let url = if base.ends_with("/v1") {
+        format!("{}/chat/completions", base)
+    } else {
+        format!("{}/v1/chat/completions", base)
+    };
 
     // Build messages array, prepending system message if provided
     let mut messages: Vec<serde_json::Value> = Vec::new();
@@ -743,7 +767,7 @@ async fn openai_stream(
 
     let body = serde_json::json!({
         "model": cfg.model,
-        "max_tokens": cfg.params.max_tokens,
+        "max_tokens": cfg.params.max_tokens.min(131072),
         "temperature": cfg.params.temperature,
         "stream": true,
         "messages": messages
@@ -755,6 +779,8 @@ async fn openai_stream(
         .header("Authorization", format!("Bearer {}", api_key))
         .header("content-type", "application/json")
         .header("accept", "text/event-stream")
+        .header("User-Agent", "claude-cli/1.0.0 (external, cli)")
+        .header("x-app", "claude-code")
         .json(&body)
         .send()
         .await
@@ -779,13 +805,19 @@ async fn openai_stream(
     if status >= 400 {
         let body_text = resp.text().await.unwrap_or_default();
         let recoverable = status >= 500 || status == 429;
+        let msg = if body_text.trim().is_empty() {
+            format!("HTTP {} (empty response body)", status)
+        } else {
+            truncate(&body_text, 500)
+        };
+        log::error!("OpenAI provider HTTP {} error: {}", status, msg);
         emit_delta(
             app,
             turn_id,
             UnifiedDelta::Error {
                 recoverable,
                 code: format!("http_{}", status),
-                message: truncate(&body_text, 500),
+                message: msg,
             },
         );
         emit_done(app, turn_id);

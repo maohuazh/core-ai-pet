@@ -21,8 +21,8 @@ class TriggerHandler {
     "jira-task-completed": "task_completed",
     "jira-task-deadline-approaching": "task_approaching_deadline",
     "jira-task-overdue": "task_overdue",
-    "llm.message": "llm.message",
-    "llm.invoke": "llm.invoke",
+    "llm/message": "llm.message",
+    "llm/invoke": "llm.invoke",
   };
 
   /**

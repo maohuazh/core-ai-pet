@@ -3,7 +3,7 @@ use tauri::{
     image::Image, AppHandle, Emitter, Manager, State, WebviewWindowBuilder,
 };
 
-use crate::infrastructure::storage::Database;
+use crate::infrastructure::storage::{ChatMessage, ChatSession, Database};
 
 // === Data Structures ===
 
@@ -948,6 +948,186 @@ pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
             // Hide the window instead
             if let Err(e) = window_clone.hide() {
                 log::error!("Failed to hide settings window: {}", e);
+            }
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn chat_create_session(
+    db: State<'_, tokio::sync::Mutex<Database>>,
+    title: Option<String>,
+    workspace: Option<String>,
+) -> Result<ChatSession, String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let session_title = title.unwrap_or_else(|| "新对话".to_string());
+    let db = db.lock().await;
+    db.create_session(&id, &session_title, workspace.as_deref())
+        .map_err(|e| e.to_string())?;
+    let sessions = db.list_sessions().map_err(|e| e.to_string())?;
+    sessions
+        .into_iter()
+        .find(|s| s.id == id)
+        .ok_or_else(|| "Failed to retrieve created session".to_string())
+}
+
+#[tauri::command]
+pub async fn chat_list_sessions(
+    db: State<'_, tokio::sync::Mutex<Database>>,
+) -> Result<Vec<ChatSession>, String> {
+    let db = db.lock().await;
+    db.list_sessions().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn chat_delete_session(
+    db: State<'_, tokio::sync::Mutex<Database>>,
+    session_id: String,
+) -> Result<(), String> {
+    let db = db.lock().await;
+    db.delete_session(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn chat_update_session(
+    db: State<'_, tokio::sync::Mutex<Database>>,
+    session_id: String,
+    title: Option<String>,
+    workspace: Option<String>,
+) -> Result<(), String> {
+    let db = db.lock().await;
+    db.update_session(&session_id, title.as_deref(), workspace.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_git_branch(workspace: String) -> Result<Option<String>, String> {
+    let ws_path = std::path::Path::new(&workspace);
+
+    // If workspace is "." or empty, try CWD and parent (for dev mode where CWD = src-tauri/)
+    let search_paths: Vec<std::path::PathBuf> = if workspace == "." || workspace.is_empty() {
+        let mut paths = vec![];
+        if let Ok(cwd) = std::env::current_dir() {
+            paths.push(cwd.clone());
+            if let Some(parent) = cwd.parent() {
+                paths.push(parent.to_path_buf());
+            }
+        }
+        paths
+    } else {
+        vec![ws_path.to_path_buf()]
+    };
+
+    for base in &search_paths {
+        let git_head = base.join(".git").join("HEAD");
+        if git_head.exists() {
+            let content = std::fs::read_to_string(&git_head).map_err(|e| e.to_string())?;
+            let trimmed = content.trim();
+            if let Some(ref_path) = trimmed.strip_prefix("ref: ") {
+                return Ok(ref_path.strip_prefix("refs/heads/").map(|s| s.to_string()));
+            } else {
+                return Ok(Some(format!("DETACHED@{}", &trimmed[..trimmed.len().min(7)])));
+            }
+        }
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+pub async fn chat_get_messages(
+    db: State<'_, tokio::sync::Mutex<Database>>,
+    session_id: String,
+) -> Result<Vec<ChatMessage>, String> {
+    let db = db.lock().await;
+    db.chat_list_by_session(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn chat_store_message(
+    db: State<'_, tokio::sync::Mutex<Database>>,
+    session_id: String,
+    turn_id: Option<String>,
+    role: String,
+    content: String,
+    message_type: Option<String>,
+) -> Result<i64, String> {
+    let db = db.lock().await;
+    db.chat_store(
+        Some(&session_id),
+        turn_id.as_deref(),
+        &role,
+        &content,
+        message_type.as_deref(),
+        None,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn open_chat_window(app: AppHandle) -> Result<(), String> {
+    // Check if chat window already exists
+    if let Some(window) = app.get_webview_window("chat") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    // Create new chat window
+    let window = if let Some(icon) = load_app_icon(&app) {
+        WebviewWindowBuilder::new(
+            &app,
+            "chat",
+            tauri::WebviewUrl::App("/chat".into()),
+        )
+        .title("CoreAIpet - 聊天")
+        .inner_size(960.0, 640.0)
+        .min_inner_size(600.0, 480.0)
+        .decorations(true)
+        .transparent(false)
+        .always_on_top(false)
+        .resizable(true)
+        .icon(icon)
+        .unwrap_or_else(|_| {
+            WebviewWindowBuilder::new(
+                &app,
+                "chat",
+                tauri::WebviewUrl::App("/chat".into()),
+            )
+            .title("CoreAIpet - 聊天")
+            .inner_size(480.0, 640.0)
+            .min_inner_size(360.0, 480.0)
+            .decorations(true)
+            .transparent(false)
+            .always_on_top(false)
+            .resizable(true)
+        })
+        .build()
+    } else {
+        WebviewWindowBuilder::new(
+            &app,
+            "chat",
+            tauri::WebviewUrl::App("/chat".into()),
+        )
+        .title("CoreAIpet - 聊天")
+        .inner_size(960.0, 640.0)
+        .min_inner_size(600.0, 480.0)
+        .decorations(true)
+        .transparent(false)
+        .always_on_top(false)
+        .resizable(true)
+        .build()
+    }
+    .map_err(|e| e.to_string())?;
+
+    // Hide instead of destroy on close
+    let window_clone = window.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            if let Err(e) = window_clone.hide() {
+                log::error!("Failed to hide chat window: {}", e);
             }
         }
     });

@@ -15,12 +15,14 @@ use commands::llm::{
 };
 use commands::plugin::{plugin_disable, plugin_enable, plugin_list};
 use commands::settings::{
-    delete_action_mapping, delete_chat_platform, delete_email_account, delete_jira_connection,
-    delete_model, disconnect_chat_platform, get_action_mappings, get_active_model_id, get_available_expressions,
-    get_available_motions, get_chat_platforms, get_email_accounts, get_jira_connections, get_models,
-    open_settings_window, save_action_mapping, set_active_model, toggle_chat_platform,
-    toggle_email_account, toggle_jira_connection, update_email_account, update_jira_connection,
-    update_model,
+    chat_create_session, chat_delete_session, chat_get_messages, chat_list_sessions,
+    chat_store_message, chat_update_session, delete_action_mapping, delete_chat_platform,
+    delete_email_account, delete_jira_connection, delete_model, disconnect_chat_platform,
+    get_action_mappings, get_active_model_id, get_available_expressions, get_available_motions,
+    get_chat_platforms, get_email_accounts, get_git_branch, get_jira_connections, get_models,
+    open_chat_window, open_settings_window, save_action_mapping, set_active_model,
+    toggle_chat_platform, toggle_email_account, toggle_jira_connection, update_email_account,
+    update_jira_connection, update_model,
 };
 use commands::state::{get_state, set_state};
 use commands::storage::{storage_get, storage_set};
@@ -67,6 +69,8 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(tokio::sync::Mutex::new(state_machine))
         .manage(tokio::sync::Mutex::new(event_bus))
         .manage(tokio::sync::Mutex::new(db))
@@ -120,6 +124,14 @@ fn main() {
             get_available_expressions,
             // Settings - Window commands
             open_settings_window,
+            open_chat_window,
+            chat_create_session,
+            chat_list_sessions,
+            chat_delete_session,
+            chat_get_messages,
+            chat_store_message,
+            chat_update_session,
+            get_git_branch,
             // LLM commands
             llm_load_config,
             llm_save_config,
@@ -149,6 +161,21 @@ fn main() {
             // Create system tray icon
             if let Err(e) = services::tray::create_tray(&handle) {
                 log::error!("Failed to create tray icon: {}", e);
+            }
+
+            // Register global shortcut Ctrl+Alt+N to open chat window
+            {
+                use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+                let h = handle.clone();
+                let _ = app.global_shortcut().on_shortcut("Ctrl+Alt+N", move |_app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        let h = h.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = commands::settings::open_chat_window(h).await;
+                        });
+                    }
+                });
+                log::info!("Global shortcut Ctrl+Alt+N registered");
             }
 
             Ok(())

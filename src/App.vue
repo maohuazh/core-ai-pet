@@ -1,10 +1,10 @@
 <template>
-  <SettingsPanel v-if="isSettingsRoute" />
+  <ChatWindow v-if="isChatRoute" />
+  <SettingsPanel v-else-if="isSettingsRoute" />
   <div v-else class="pet-container" @dblclick="openChat">
     <Live2DCanvas ref="canvasRef" />
     <WindowCloseButton v-if="showMenu" />
     <PetHoverMenu v-if="showMenu" :on-action="handleMenuAction" />
-    <ChatPlaceholder ref="chatRef" />
   </div>
 </template>
 
@@ -14,7 +14,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import Live2DCanvas from "./components/Live2DCanvas.vue";
 import WindowCloseButton from "./components/WindowCloseButton.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
-import ChatPlaceholder from "./modules/chat/ChatPlaceholder.vue";
+import ChatWindow from "./modules/chat/ChatWindow.vue";
 import SettingsPanel from "./components/settings/SettingsPanel.vue";
 import { invoke } from "@tauri-apps/api/core";
 import { modelRegistry } from "./core/model/ModelRegistry";
@@ -22,13 +22,11 @@ import { petStore } from "./core/model/PetStore";
 import { registerTriggerExecutor, unregisterTriggerExecutor } from "./core/action/triggerExecutor";
 import { AVAILABLE_EFFECTS } from "./core/action/effects";
 
-// Check if current route is /settings
-const isSettingsRoute = computed(() => {
-  return window.location.pathname === "/settings";
-});
+// Check current route
+const isSettingsRoute = computed(() => window.location.pathname === "/settings");
+const isChatRoute = computed(() => window.location.pathname === "/chat");
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
-const chatRef = ref<InstanceType<typeof ChatPlaceholder> | null>(null);
 const showMenu = ref(false);
 
 let unlistenStart: UnlistenFn | null = null;
@@ -38,8 +36,8 @@ let unlistenPreviewMapping: UnlistenFn | null = null;
 let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(async () => {
-  // Only set up pet window listeners if not in settings route
-  if (!isSettingsRoute.value) {
+  // Only set up pet window listeners if not in settings or chat route
+  if (!isSettingsRoute.value && !isChatRoute.value) {
     // Listen for model change events from settings window
     unlistenModelChanged = await listen<{ modelId: string }>("pet-model-changed", (event) => {
       const model = modelRegistry.getById(event.payload.modelId);
@@ -138,31 +136,24 @@ onMounted(async () => {
     });
   }
 
-  // TEMP: Press T to manually trigger daily_2 for testing
-  const onTestKey = async (e: KeyboardEvent) => {
-    if (e.key === "t" || e.key === "T") {
-      console.log("Manual trigger: daily_2");
-      const { triggerHandler } = await import("./core/events/triggerHandler");
-      await triggerHandler.fireTrigger("daily_2");
-    }
-  };
-  window.addEventListener("keydown", onTestKey);
-  // Store for cleanup
-  (window as any).__testKeyHandler = onTestKey;
+  // TEMP: Press T to manually trigger daily_2 for testing (only in pet window)
+  if (!isSettingsRoute.value && !isChatRoute.value) {
+    const onTestKey = async (e: KeyboardEvent) => {
+      if (e.key === "t" || e.key === "T") {
+        console.log("Manual trigger: daily_2");
+        const { triggerHandler } = await import("./core/events/triggerHandler");
+        await triggerHandler.fireTrigger("daily_2");
+      }
+    };
+    window.addEventListener("keydown", onTestKey);
+    (window as any).__testKeyHandler = onTestKey;
+  }
 
-  // Keyboard shortcut: Ctrl+Alt+N to toggle chat window
+  // Keyboard shortcut: Ctrl+Alt+N to open chat window
   const onChatShortcut = (e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'n') {
       e.preventDefault();
-      if (chatRef.value) {
-        // Toggle chat visibility
-        const chat = chatRef.value as any;
-        if (chat.visible) {
-          chat.hide();
-        } else {
-          chat.show();
-        }
-      }
+      invoke("open_chat_window").catch((e) => console.error("Failed to open chat window:", e));
     }
   };
   window.addEventListener("keydown", onChatShortcut);
@@ -186,9 +177,7 @@ onUnmounted(() => {
 
 /** Open chat window (called on double-click) */
 function openChat() {
-  if (chatRef.value) {
-    (chatRef.value as any).show();
-  }
+  invoke("open_chat_window").catch((e) => console.error("Failed to open chat window:", e));
 }
 
 /** Show a floating emoji effect above/near the pet */
@@ -245,8 +234,12 @@ const handleMenuAction = async (action: string) => {
   console.log("Menu action:", action);
 
   if (action === "settings") {
-    // Open settings window
     await invoke("open_settings_window");
+    return;
+  }
+
+  if (action === "message") {
+    await invoke("open_chat_window");
     return;
   }
 

@@ -10,6 +10,7 @@
     "core:window:allow-start-dragging",
     "core:window:allow-set-position",
     "core:window:allow-outer-position",
-    "shell:default"
+    "shell:default",
+    "global-shortcut:default"
   ]
 }
