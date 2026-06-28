@@ -1,5 +1,6 @@
 <template>
-  <ChatWindow v-if="isChatRoute" />
+  <MainWindow v-if="isMainAppRoute" />
+  <ChatWindow v-else-if="isChatRoute" />
   <SettingsPanel v-else-if="isSettingsRoute" />
   <div
     v-else
@@ -40,6 +41,7 @@ import WindowCloseButton from "./components/WindowCloseButton.vue";
 import PetHoverMenu from "./components/PetHoverMenu.vue";
 import ChatWindow from "./modules/chat/ChatWindow.vue";
 import SettingsPanel from "./components/settings/SettingsPanel.vue";
+import MainWindow from "./windows/MainWindow.vue";
 import AppModal from "./components/ui/AppModal.vue";
 import AppMenu, { type MenuItem } from "./components/ui/AppMenu.vue";
 import { invoke } from "@tauri-apps/api/core";
@@ -52,6 +54,7 @@ import { petMenuItems } from "./core/pet/petMenu";
 // Check current route
 const isSettingsRoute = computed(() => window.location.pathname === "/settings");
 const isChatRoute = computed(() => window.location.pathname === "/chat");
+const isMainAppRoute = computed(() => window.location.pathname.startsWith("/app"));
 
 const canvasRef = ref<InstanceType<typeof Live2DCanvas> | null>(null);
 const showMenu = ref(false);
@@ -76,8 +79,8 @@ let unlistenPreviewMapping: UnlistenFn | null = null;
 let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(async () => {
-  // Only set up pet window listeners if not in settings or chat route
-  if (!isSettingsRoute.value && !isChatRoute.value) {
+  // Only set up pet window listeners if not in settings, chat, or main-app route
+  if (!isSettingsRoute.value && !isChatRoute.value && !isMainAppRoute.value) {
     // Listen for model change events from settings window
     unlistenModelChanged = await listen<{ modelId: string }>("pet-model-changed", (event) => {
       const model = modelRegistry.getById(event.payload.modelId);
@@ -177,7 +180,7 @@ onMounted(async () => {
   }
 
   // TEMP: Press T to manually trigger daily_2 for testing (only in pet window)
-  if (!isSettingsRoute.value && !isChatRoute.value) {
+  if (!isSettingsRoute.value && !isChatRoute.value && !isMainAppRoute.value) {
     const onTestKey = async (e: KeyboardEvent) => {
       if (e.key === "t" || e.key === "T") {
         console.log("Manual trigger: daily_2");
@@ -198,6 +201,16 @@ onMounted(async () => {
   };
   window.addEventListener("keydown", onChatShortcut);
   (window as any).__chatShortcutHandler = onChatShortcut;
+
+  // Keyboard shortcut: Ctrl+Alt+L to open main window
+  const onMainWindowShortcut = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault();
+      invoke("open_main_window").catch((e) => console.error("Failed to open main window:", e));
+    }
+  };
+  window.addEventListener("keydown", onMainWindowShortcut);
+  (window as any).__mainWindowShortcutHandler = onMainWindowShortcut;
 });
 
 onUnmounted(() => {
@@ -211,6 +224,9 @@ onUnmounted(() => {
   }
   if ((window as any).__chatShortcutHandler) {
     window.removeEventListener("keydown", (window as any).__chatShortcutHandler);
+  }
+  if ((window as any).__mainWindowShortcutHandler) {
+    window.removeEventListener("keydown", (window as any).__mainWindowShortcutHandler);
   }
   if (hideTimeout) clearTimeout(hideTimeout);
 });
@@ -274,6 +290,7 @@ const actionLabels: Record<string, string> = {
   email: "邮件",
   agent: "Agent",
   settings: "设置",
+  home: "主页",
 };
 
 const handleMenuAction = async (action: string) => {
@@ -286,6 +303,11 @@ const handleMenuAction = async (action: string) => {
 
   if (action === "message") {
     await invoke("open_chat_window");
+    return;
+  }
+
+  if (action === "home") {
+    await invoke("open_main_window");
     return;
   }
 

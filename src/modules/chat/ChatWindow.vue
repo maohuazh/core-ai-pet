@@ -6,9 +6,17 @@
         <span class="session-title">会话</span>
         <button class="new-chat-btn" @click="createNewSession" title="新对话">+</button>
       </div>
+      <div class="session-search-wrap">
+        <input
+          v-model="sessionSearch"
+          class="session-search-input"
+          type="text"
+          placeholder="搜索会话..."
+        />
+      </div>
       <div class="session-list">
         <div
-          v-for="session in sessions"
+          v-for="session in filteredSessions"
           :key="session.id"
           class="session-item"
           :class="{ active: currentSessionId === session.id }"
@@ -20,11 +28,13 @@
           </div>
           <button class="session-delete" @click.stop="deleteSession(session.id)" title="删除">×</button>
         </div>
-        <div v-if="sessions.length === 0" class="session-empty">暂无对话</div>
+        <div v-if="filteredSessions.length === 0" class="session-empty">
+          {{ sessionSearch ? '无匹配会话' : '暂无对话' }}
+        </div>
       </div>
     </aside>
 
-    <!-- Center: Messages -->
+    <!-- Right: Messages + Input + Bottom bar -->
     <main class="message-area">
       <div class="message-header">
         <span class="message-header-title">{{ currentSessionTitle }}</span>
@@ -109,34 +119,34 @@
           发送
         </button>
       </div>
-    </main>
 
-    <!-- Bottom bar: Workspace selector + git branch -->
-    <footer class="bottom-bar">
-      <label class="workspace-label">工作区:</label>
-      <button
-        ref="workspaceBtn"
-        class="workspace-trigger"
-        :class="{ open: workspaceMenuOpen }"
-        @click="workspaceMenuOpen = !workspaceMenuOpen"
-      >
-        <span class="workspace-text">{{ workspaceDisplayLabel }}</span>
-        <span class="workspace-arrow">▾</span>
-      </button>
-      <AppMenu
-        :open="workspaceMenuOpen"
-        :anchor="workspaceBtn"
-        :items="workspaceMenuItems"
-        placement="top-start"
-        @update:open="workspaceMenuOpen = $event"
-      />
-      <span v-if="gitBranch" class="git-branch" :title="currentWorkspace || '当前项目'">
-        <svg class="git-icon" viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
-          <path d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/>
-        </svg>
-        {{ gitBranch }}
-      </span>
-    </footer>
+      <!-- Bottom bar: Workspace selector + git branch -->
+      <footer class="bottom-bar">
+        <label class="workspace-label">工作区:</label>
+        <button
+          ref="workspaceBtn"
+          class="workspace-trigger"
+          :class="{ open: workspaceMenuOpen }"
+          @click="workspaceMenuOpen = !workspaceMenuOpen"
+        >
+          <span class="workspace-text">{{ workspaceDisplayLabel }}</span>
+          <span class="workspace-arrow">▾</span>
+        </button>
+        <AppMenu
+          :open="workspaceMenuOpen"
+          :anchor="workspaceBtn"
+          :items="workspaceMenuItems"
+          placement="top-start"
+          @update:open="workspaceMenuOpen = $event"
+        />
+        <span v-if="gitBranch" class="git-branch" :title="currentWorkspace || '当前项目'">
+          <svg class="git-icon" viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+            <path d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/>
+          </svg>
+          {{ gitBranch }}
+        </span>
+      </footer>
+    </main>
   </div>
 </template>
 
@@ -196,6 +206,14 @@ const isLoading = ref(false);
 const currentTurnId = ref<string | null>(null);
 const messagesContainer = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLTextAreaElement | null>(null);
+
+// Session search
+const sessionSearch = ref('');
+const filteredSessions = computed(() => {
+  if (!sessionSearch.value.trim()) return sessions.value;
+  const query = sessionSearch.value.toLowerCase();
+  return sessions.value.filter(s => s.title.toLowerCase().includes(query));
+});
 
 // Streaming state (shown while loading)
 const streamingContent = ref('');
@@ -542,27 +560,18 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
   width: 100vw;
   height: 100vh;
   display: flex;
-  flex-direction: column;
-  background: #1e1e2e;
-  color: #cdd6f4;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-/* ---- Layout ---- */
-.chat-window {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  grid-template-rows: 1fr auto;
-  grid-template-areas:
-    "sidebar main"
-    "sidebar bottom";
+  flex-direction: row;
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: var(--font-sans);
 }
 
 /* ---- Session Sidebar ---- */
 .session-sidebar {
-  grid-area: sidebar;
-  background: #181825;
-  border-right: 1px solid #313244;
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -573,32 +582,57 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
   justify-content: space-between;
   align-items: center;
   padding: 12px 14px;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid var(--border);
 }
 
 .session-title {
   font-size: 13px;
   font-weight: 600;
-  color: #a6adc8;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .new-chat-btn {
-  background: #45475a;
+  background: var(--accent);
   border: none;
-  color: #cdd6f4;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  color: var(--bg-base);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-md);
   font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
+  transition: background var(--t-fast);
 }
-.new-chat-btn:hover { background: #585b70; }
+.new-chat-btn:hover { background: var(--accent-hover); }
+
+.session-search-wrap {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.session-search-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--t-fast);
+}
+.session-search-input:focus {
+  border-color: var(--accent);
+}
+.session-search-input::placeholder {
+  color: var(--text-dim);
+}
 
 .session-list {
   flex: 1;
@@ -610,14 +644,15 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 10px;
-  border-radius: 6px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: var(--r-md);
   cursor: pointer;
   margin-bottom: 2px;
-  transition: background 0.15s;
+  transition: background var(--t-fast);
 }
-.session-item:hover { background: #313244; }
-.session-item.active { background: #45475a; }
+.session-item:hover { background: var(--bg-elevated); }
+.session-item.active { background: var(--bg-hover); }
 
 .session-info {
   display: flex;
@@ -629,7 +664,7 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 
 .session-name {
   font-size: 13px;
-  color: #cdd6f4;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -637,7 +672,7 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 
 .session-workspace {
   font-size: 10px;
-  color: #6c7086;
+  color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -646,33 +681,34 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 .session-delete {
   background: none;
   border: none;
-  color: #6c7086;
+  color: var(--text-dim);
   font-size: 14px;
   cursor: pointer;
   padding: 0 4px;
   flex-shrink: 0;
-  transition: color 0.15s;
+  transition: color var(--t-fast);
 }
-.session-delete:hover { color: #f38ba8; }
+.session-delete:hover { color: var(--danger); }
 
 .session-empty {
   text-align: center;
-  color: #6c7086;
+  color: var(--text-dim);
   font-size: 12px;
   padding: 20px 10px;
 }
 
 /* ---- Message Area ---- */
 .message-area {
-  grid-area: main;
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .message-header {
   padding: 10px 16px;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -683,7 +719,7 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 .message-header-title {
   font-size: 14px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -691,10 +727,10 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 
 .git-branch {
   font-size: 11px;
-  color: #a6e3a1;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
-  border-radius: 10px;
+  color: var(--success);
+  background: var(--bg-base);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
   padding: 2px 8px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -725,8 +761,8 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
   flex: 1;
 }
 .empty-icon { font-size: 48px; opacity: 0.3; }
-.empty-text { font-size: 16px; color: #a6adc8; }
-.empty-hint { font-size: 12px; color: #6c7086; }
+.empty-text { font-size: 16px; color: var(--text-muted); }
+.empty-hint { font-size: 12px; color: var(--text-dim); }
 
 /* ---- Message Rows ---- */
 .message-row {
@@ -742,9 +778,9 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 /* ---- User Bubble ---- */
 .user-bubble {
   max-width: 70%;
-  background: #89b4fa;
-  color: #1e1e2e;
-  border-radius: 14px 14px 4px 14px;
+  background: var(--accent);
+  color: var(--bg-base);
+  border-radius: var(--r-2xl) var(--r-2xl) var(--r-sm) var(--r-2xl);
   padding: 8px 14px;
 }
 .user-bubble .bubble-content {
@@ -763,9 +799,9 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 }
 
 .assistant-bubble {
-  background: #313244;
-  color: #cdd6f4;
-  border-radius: 14px 14px 14px 4px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-radius: var(--r-2xl) var(--r-2xl) var(--r-2xl) var(--r-sm);
   padding: 8px 14px;
 }
 .assistant-bubble .bubble-content {
@@ -777,7 +813,7 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 
 .cursor-blink {
   animation: blink 1s step-end infinite;
-  color: #89b4fa;
+  color: var(--accent);
 }
 @keyframes blink {
   50% { opacity: 0; }
@@ -785,9 +821,9 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 
 /* ---- Thinking Block ---- */
 .thinking-block {
-  background: #1e1e2e;
-  border: 1px solid #45475a;
-  border-radius: 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
   overflow: hidden;
 }
 .thinking-header {
@@ -797,19 +833,19 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #a6adc8;
+  color: var(--text-muted);
   user-select: none;
 }
-.thinking-header:hover { background: #313244; }
+.thinking-header:hover { background: var(--bg-elevated); }
 .thinking-toggle { font-size: 10px; }
 .thinking-label { font-weight: 500; }
 .thinking-content {
   padding: 8px 10px;
   font-size: 12px;
-  color: #7f849c;
+  color: var(--text-faint);
   line-height: 1.5;
   white-space: pre-wrap;
-  border-top: 1px solid #45475a;
+  border-top: 1px solid var(--border-strong);
   max-height: 200px;
   overflow-y: auto;
 }
@@ -821,29 +857,29 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
   gap: 4px;
 }
 .tool-call {
-  background: #1e1e2e;
-  border: 1px solid #45475a;
-  border-radius: 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
   overflow: hidden;
 }
 .tool-header {
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 500;
-  color: #a6e3a1;
-  background: #1e1e2e;
+  color: var(--success);
+  background: var(--bg-base);
 }
 .tool-args {
   padding: 6px 10px;
   font-size: 11px;
-  color: #7f849c;
-  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 120px;
   overflow-y: auto;
   margin: 0;
-  border-top: 1px solid #45475a;
+  border-top: 1px solid var(--border-strong);
 }
 
 /* ---- Loading ---- */
@@ -855,7 +891,7 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 .loading-dot {
   width: 6px;
   height: 6px;
-  background: #89b4fa;
+  background: var(--accent);
   border-radius: 50%;
   animation: dotBounce 1.4s infinite ease-in-out both;
 }
@@ -871,79 +907,78 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
   display: flex;
   gap: 8px;
   padding: 10px 14px;
-  border-top: 1px solid #313244;
-  background: #181825;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
   flex-shrink: 0;
 }
 .message-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #45475a;
-  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
   font-size: 13px;
-  font-family: inherit;
+  font-family: var(--font-sans);
   resize: none;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-base);
+  color: var(--text);
 }
 .message-input:focus {
   outline: none;
-  border-color: #89b4fa;
+  border-color: var(--accent);
 }
-.message-input::placeholder { color: #6c7086; }
+.message-input::placeholder { color: var(--text-dim); }
 
 .send-btn {
   padding: 8px 18px;
-  background: #89b4fa;
-  color: #1e1e2e;
+  background: var(--accent);
+  color: var(--bg-base);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-lg);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--t-fast);
   align-self: flex-end;
 }
-.send-btn:hover:not(:disabled) { background: #74c7ec; }
+.send-btn:hover:not(:disabled) { background: var(--accent-hover); }
 .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ---- Bottom Bar ---- */
 .bottom-bar {
-  grid-area: bottom;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  border-top: 1px solid #313244;
-  background: #181825;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
   flex-shrink: 0;
 }
 .workspace-label {
   font-size: 12px;
-  color: #6c7086;
+  color: var(--text-dim);
 }
 .workspace-trigger {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 3px 10px;
-  border: 1px solid #45475a;
-  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
   font-size: 12px;
-  font-family: inherit;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  color: var(--text);
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color var(--t-fast);
 }
 .workspace-trigger:hover,
 .workspace-trigger.open {
-  border-color: #89b4fa;
+  border-color: var(--accent);
   outline: none;
 }
 .workspace-arrow {
   font-size: 10px;
-  color: #6c7086;
+  color: var(--text-dim);
 }
 
 /* ---- Scrollbar ---- */
@@ -952,5 +987,5 @@ watch(messages, () => { scrollToBottom(); }, { deep: true });
 .messages-scroll::-webkit-scrollbar-track,
 .session-list::-webkit-scrollbar-track { background: transparent; }
 .messages-scroll::-webkit-scrollbar-thumb,
-.session-list::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
+.session-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
 </style>

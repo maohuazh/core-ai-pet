@@ -8,6 +8,7 @@ export interface PetMenuItem {
 }
 
 export const petMenuItems: PetMenuItem[] = [
+  { action: "home", icon: "🏠", label: "主页" },
   { action: "task", icon: "📋", label: "任务" },
   { action: "message", icon: "💬", label: "消息" },
   { action: "jira", icon: "🔗", label: "Jira" },

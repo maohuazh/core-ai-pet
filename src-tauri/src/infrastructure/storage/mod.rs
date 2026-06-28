@@ -48,6 +48,19 @@ pub struct WindowPosition {
     pub updated_at: u64,
 }
 
+/// 用户账号
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    pub id: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub email: String,
+    pub password_hash: String,
+    pub avatar: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 /// 插件状态
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginState {
@@ -197,6 +210,18 @@ impl Database {
                 UNIQUE(model_id, trigger_key)
             );
 
+            -- 用户账号
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                avatar TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
             -- 应用全局设置（KV 存储）
             CREATE TABLE IF NOT EXISTS app_settings (
                 key TEXT PRIMARY KEY,
@@ -299,6 +324,30 @@ impl Database {
 
     /// 初始化 Mock 数据（仅在表为空时插入）
     fn initialize_mock_data(conn: &Connection) -> Result<()> {
+
+        // Check if users is empty — seed default account
+        let users_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM users",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if users_count == 0 {
+            // Default password: "123456" — stored as plain text for now (local-only desktop app)
+            conn.execute(
+                "INSERT INTO users (id, first_name, last_name, email, password_hash, avatar)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    "user-default",
+                    "murphy",
+                    "zhang",
+                    "murphyzhang@chancetop.com",
+                    "123456",
+                    Option::<String>::None,
+                ],
+            )?;
+            log::info!("Initialized default user account");
+        }
 
         // Check if jira_connections is empty
         let jira_count: i64 = conn.query_row(
@@ -629,6 +678,112 @@ impl Database {
             states.push(row?);
         }
         Ok(states)
+    }
+
+    // === User 操作 ===
+
+    /// 根据 email 查找用户
+    pub fn find_user_by_email(&self, email: &str) -> Result<Option<User>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, first_name, last_name, email, password_hash, avatar, created_at, updated_at
+             FROM users WHERE email = ?1",
+        )?;
+        let mut rows = stmt.query(params![email])?;
+        match rows.next()? {
+            Some(row) => Ok(Some(User {
+                id: row.get(0)?,
+                first_name: row.get(1)?,
+                last_name: row.get(2)?,
+                email: row.get(3)?,
+                password_hash: row.get(4)?,
+                avatar: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+            })),
+            None => Ok(None),
+        }
+    }
+
+    /// 根据 id 查找用户
+    pub fn find_user_by_id(&self, id: &str) -> Result<Option<User>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, first_name, last_name, email, password_hash, avatar, created_at, updated_at
+             FROM users WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query(params![id])?;
+        match rows.next()? {
+            Some(row) => Ok(Some(User {
+                id: row.get(0)?,
+                first_name: row.get(1)?,
+                last_name: row.get(2)?,
+                email: row.get(3)?,
+                password_hash: row.get(4)?,
+                avatar: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+            })),
+            None => Ok(None),
+        }
+    }
+
+    /// 创建新用户
+    pub fn create_user(
+        &self,
+        id: &str,
+        first_name: &str,
+        last_name: &str,
+        email: &str,
+        password_hash: &str,
+        avatar: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, first_name, last_name, email, password_hash, avatar)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![id, first_name, last_name, email, password_hash, avatar],
+        )?;
+        Ok(())
+    }
+
+    /// 更新用户信息
+    pub fn update_user(
+        &self,
+        id: &str,
+        first_name: Option<&str>,
+        last_name: Option<&str>,
+        avatar: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        if let Some(fn_) = first_name {
+            conn.execute(
+                "UPDATE users SET first_name = ?1, updated_at = datetime('now') WHERE id = ?2",
+                params![fn_, id],
+            )?;
+        }
+        if let Some(ln) = last_name {
+            conn.execute(
+                "UPDATE users SET last_name = ?1, updated_at = datetime('now') WHERE id = ?2",
+                params![ln, id],
+            )?;
+        }
+        if let Some(av) = avatar {
+            conn.execute(
+                "UPDATE users SET avatar = ?1, updated_at = datetime('now') WHERE id = ?2",
+                params![av, id],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// 验证登录（email + password）
+    pub fn verify_login(&self, email: &str, password: &str) -> Result<Option<User>> {
+        let user = self.find_user_by_email(email)?;
+        match user {
+            Some(u) if u.password_hash == password => Ok(Some(u)),
+            _ => Ok(None),
+        }
     }
 }
 

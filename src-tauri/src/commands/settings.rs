@@ -1135,6 +1135,103 @@ pub async fn open_chat_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub async fn open_main_window(app: AppHandle) -> Result<(), String> {
+    // Check if main window already exists
+    if let Some(window) = app.get_webview_window("main-app") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        // Center on current monitor each time it's shown
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let mw = 900.0;
+            let mh = 600.0;
+            let screen_size = monitor.size();
+            let scale = monitor.scale_factor();
+            let screen_w = screen_size.width as f64 / scale;
+            let screen_h = screen_size.height as f64 / scale;
+            let pos = monitor.position();
+            let x = pos.x as f64 / scale + (screen_w - mw) / 2.0;
+            let y = pos.y as f64 / scale + (screen_h - mh) / 2.0;
+            let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
+        }
+        return Ok(());
+    }
+
+    // Create new main window
+    let window = if let Some(icon) = load_app_icon(&app) {
+        WebviewWindowBuilder::new(
+            &app,
+            "main-app",
+            tauri::WebviewUrl::App("/app".into()),
+        )
+        .title("CoreAIpet - 工作台")
+        .inner_size(900.0, 600.0)
+        .min_inner_size(900.0, 600.0)
+        .decorations(false)
+        .transparent(false)
+        .always_on_top(false)
+        .resizable(true)
+        .icon(icon)
+        .unwrap_or_else(|_| {
+            WebviewWindowBuilder::new(
+                &app,
+                "main-app",
+                tauri::WebviewUrl::App("/app".into()),
+            )
+            .title("CoreAIpet - 工作台")
+            .inner_size(900.0, 600.0)
+            .min_inner_size(900.0, 600.0)
+            .decorations(false)
+            .transparent(false)
+            .always_on_top(false)
+            .resizable(true)
+        })
+        .build()
+    } else {
+        WebviewWindowBuilder::new(
+            &app,
+            "main-app",
+            tauri::WebviewUrl::App("/app".into()),
+        )
+        .title("CoreAIpet - 工作台")
+        .inner_size(900.0, 600.0)
+        .min_inner_size(900.0, 600.0)
+        .decorations(true)
+        .transparent(false)
+        .always_on_top(false)
+        .resizable(true)
+        .build()
+    }
+    .map_err(|e| e.to_string())?;
+
+    // Center on primary monitor
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let mw = 900.0;
+        let mh = 600.0;
+        let screen_size = monitor.size();
+        let scale = monitor.scale_factor();
+        let screen_w = screen_size.width as f64 / scale;
+        let screen_h = screen_size.height as f64 / scale;
+        let pos = monitor.position();
+        let x = pos.x as f64 / scale + (screen_w - mw) / 2.0;
+        let y = pos.y as f64 / scale + (screen_h - mh) / 2.0;
+        let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
+    }
+
+    // Hide instead of destroy on close
+    let window_clone = window.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            if let Err(e) = window_clone.hide() {
+                log::error!("Failed to hide main window: {}", e);
+            }
+        }
+    });
+
+    Ok(())
+}
+
 /// Load the app icon for use as window/taskbar icon.
 fn load_app_icon(app: &AppHandle) -> Option<Image<'static>> {
     // Try resource dir (bundled app)

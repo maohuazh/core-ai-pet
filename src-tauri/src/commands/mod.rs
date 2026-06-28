@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod event;
 pub mod llm;
 pub mod plugin;

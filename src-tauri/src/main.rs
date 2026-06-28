@@ -8,6 +8,7 @@ mod services;
 use core_ai_pet::infrastructure;
 
 use tauri::{AppHandle, Manager};
+use commands::auth::{get_current_user, login, logout, register};
 use commands::event::{emit_event, subscribe_event};
 use commands::llm::{
     llm_delete_secret, llm_get_secret, llm_invoke, llm_load_config, llm_save_config,
@@ -20,7 +21,7 @@ use commands::settings::{
     delete_email_account, delete_jira_connection, delete_model, disconnect_chat_platform,
     get_action_mappings, get_active_model_id, get_available_expressions, get_available_motions,
     get_chat_platforms, get_email_accounts, get_git_branch, get_jira_connections, get_models,
-    open_chat_window, open_settings_window, save_action_mapping, set_active_model,
+    open_chat_window, open_main_window, open_settings_window, save_action_mapping, set_active_model,
     toggle_chat_platform, toggle_email_account, toggle_jira_connection, update_email_account,
     update_jira_connection, update_model,
 };
@@ -125,6 +126,7 @@ fn main() {
             // Settings - Window commands
             open_settings_window,
             open_chat_window,
+            open_main_window,
             chat_create_session,
             chat_list_sessions,
             chat_delete_session,
@@ -140,6 +142,11 @@ fn main() {
             llm_delete_secret,
             llm_test_connection,
             llm_invoke,
+            // Auth commands
+            login,
+            logout,
+            get_current_user,
+            register,
         ])
         .setup(|app| {
             // Apply native window styles for desktop pet behavior

@@ -1,8 +1,17 @@
 <template>
   <div class="settings-panel">
     <SettingsTitleBar />
-    <div class="settings-content">
-      <SettingsSidebar v-model:activeModule="activeModule" />
+    <div class="settings-body">
+      <AppSidebar
+        :items="sidebarItems"
+        :active="activeModule"
+        :collapsed="false"
+        @update:active="activeModule = $event as SettingsModule"
+      >
+        <template #footer>
+          <span class="version-text">CoreAIpet v1.0.0</span>
+        </template>
+      </AppSidebar>
       <div class="settings-main">
         <Transition name="fade" mode="out-in">
           <JiraModule v-if="activeModule === 'jira'" key="jira" />
@@ -10,6 +19,7 @@
           <ChatModule v-else-if="activeModule === 'chat'" key="chat" />
           <ModelConfigModule v-else-if="activeModule === 'model'" key="model" />
           <LLMModule v-else-if="activeModule === 'llm'" key="llm" />
+          <ShortcutsModule v-else-if="activeModule === 'shortcuts'" key="shortcuts" />
         </Transition>
       </div>
     </div>
@@ -19,15 +29,26 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import SettingsTitleBar from './SettingsTitleBar.vue';
-import SettingsSidebar from './SettingsSidebar.vue';
+import AppSidebar from '@/components/layout/AppSidebar.vue';
 import JiraModule from './modules/JiraModule.vue';
 import EmailModule from './modules/EmailModule.vue';
 import ChatModule from './modules/ChatModule.vue';
 import ModelConfigModule from './modules/ModelConfigModule.vue';
 import LLMModule from '@/modules/settings/LLMSettings.vue';
+import ShortcutsModule from './modules/ShortcutsModule.vue';
+import type { NavItem } from '@/components/layout/types';
 import type { SettingsModule } from './types';
 
 const activeModule = ref<SettingsModule>('jira');
+
+const sidebarItems: NavItem[] = [
+  { id: 'jira', label: 'Jira', icon: '📋' },
+  { id: 'email', label: '邮箱', icon: '📧' },
+  { id: 'chat', label: 'IM', icon: '💬' },
+  { id: 'model', label: '宠物', icon: '🐾' },
+  { id: 'llm', label: 'AI模型', icon: '🤖' },
+  { id: 'shortcuts', label: '快捷键', icon: '⌨️' },
+];
 </script>
 
 <style scoped>
@@ -42,7 +63,7 @@ const activeModule = ref<SettingsModule>('jira');
   overflow: hidden;
 }
 
-.settings-content {
+.settings-body {
   display: flex;
   flex: 1;
   overflow: hidden;
@@ -72,5 +93,10 @@ const activeModule = ref<SettingsModule>('jira');
 .settings-main::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-radius: 3px;
+}
+
+.version-text {
+  font-size: 11px;
+  color: var(--text-dim);
 }
 </style>
